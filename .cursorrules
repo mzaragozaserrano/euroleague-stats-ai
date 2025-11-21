@@ -68,7 +68,7 @@ You strictly follow Test-Driven Development (TDD) using BDD (Gherkin) specificat
 
 # CUSTOM COMMANDS
 
-## /commit <message>
+## !commit <message>
 - **Trigger:** When I start a prompt with `/commit` followed by a message.
 - **Action:**
   1. Execute `git add .` in the terminal.
@@ -77,6 +77,6 @@ You strictly follow Test-Driven Development (TDD) using BDD (Gherkin) specificat
   4. Show the output.
   5. **DO NOT push** unless I explicitly say so.
 
-## /push
+## !push
 - **Trigger:** When I type `/push`.
 - **Action:** Execute `git push` and show the output.
