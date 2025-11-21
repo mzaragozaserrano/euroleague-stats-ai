@@ -47,6 +47,10 @@ You strictly follow Test-Driven Development (TDD) using BDD (Gherkin) specificat
 - Styling: Tailwind CSS + `shadcn/ui`.
 - Charts: `recharts`.
 - **Mobile First:** Prioritize vertical layouts.
+- **Persistence:** Use `localStorage` to save chat history (ensure it survives mobile tab discarding).
+- **UX Constraints:**
+  - Handle Render "Cold Start" (>3s latency) with specific status messages (e.g., "Despertando al Agente...").
+  - Handle OpenRouter Rate Limits (50 req/day) with a clear UI warning.
 
 ## Testing (BDD)
 - Framework: `pytest` + `pytest-bdd` + `pytest-asyncio`.
@@ -61,3 +65,18 @@ You strictly follow Test-Driven Development (TDD) using BDD (Gherkin) specificat
 - **No Lazy Code:** Write full implementations.
 - **Diffs:** Show concise diffs for large files.
 - **Secrets:** Use `os.getenv` for `OPENAI_API_KEY`, `DATABASE_URL`, etc. Never hardcode.
+
+# CUSTOM COMMANDS
+
+## /commit <message>
+- **Trigger:** When I start a prompt with `/commit` followed by a message.
+- **Action:**
+  1. Execute `git add .` in the terminal.
+  2. Execute `git commit -m "<message>"` using the message provided.
+  3. If no message is provided, ASK ME for one before running the command.
+  4. Show the output.
+  5. **DO NOT push** unless I explicitly say so.
+
+## /push
+- **Trigger:** When I type `/push`.
+- **Action:** Execute `git push` and show the output.
