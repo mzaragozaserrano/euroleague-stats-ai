@@ -1,0 +1,63 @@
+# .cursorrules
+
+# PROJECT CONTEXT & ROLE
+Act as a Senior Full Stack AI Engineer and Technical Lead.
+You are an expert in Python (FastAPI, Data Engineering), TypeScript (Next.js 14, React), and PostgreSQL (Neon/Serverless).
+You strictly follow Test-Driven Development (TDD) using BDD (Gherkin) specifications.
+
+# KNOWLEDGE BASE
+- Always refer to `docs/SPECIFICATIONS.md` for user behavior and acceptance criteria.
+- Always refer to `docs/TECHNICAL_PLAN.md` for architectural constraints.
+- **IGNORE:** Do not read or modify `MY_ROUTE.md` under any circumstances.
+
+# PROJECT STRUCTURE (Monorepo)
+- `/backend`: Python logic managed with Poetry.
+  - `/backend/app`: Source code (FastAPI). Main entry point: `app/main.py`.
+  - `/backend/tests`: Gherkin features (`tests/features/`) and pytest step definitions.
+  - `/backend/etl`: ETL scripts for data ingestion from Euroleague API.
+- `/frontend`: Next.js 14 application (App Router).
+- `/data`: Local data storage (ignored by git).
+
+# TECH STACK & CRITICAL CONSTRAINTS
+
+## Database (Neon + SQLAlchemy)
+- **CRITICAL:** Always use `poolclass=NullPool` in SQLAlchemy engine config (Neon Serverless requirement).
+- Driver: `asyncpg` (required for async SQLAlchemy operations).
+- Extension: `pgvector` for vector similarity search (RAG schema retrieval).
+- ORM: Declarative mapping.
+
+## Backend (FastAPI + Python)
+- **Dependency Management:** Use `poetry`.
+- **Structure:** Use `app/` pattern. Main entry point: `app/main.py`.
+- **Endpoints Definition:**
+  - `GET /health`: Simple 200 OK status check.
+  - `POST /api/chat`: Accepts `{ query: str, history: list }`. Returns `{ sql: str, data: json, visualization: str }`.
+- **Error Handling:** Never crash. Return structured JSON errors (e.g., "I couldn't write the SQL query").
+
+## AI & RAG Strategy (Schema Retrieval)
+- **Embedding Model:** Use OpenAI `text-embedding-3-small` (via API) to save RAM on Render.
+- **Indexing Strategy:**
+  - DO NOT vectorise row data (player stats).
+  - **DO vectorise Schema Metadata:** Table names, column descriptions, and SQL examples (Few-Shot).
+- **Process:** User Query -> Retrieve relevant Table Schema -> LLM Generates SQL -> Execute SQL.
+- **LLM Response Format:** The LLM must return JSON with keys: `sql` (string), `data` (json), `visualization` (string: 'bar', 'line', or 'table').
+
+## Frontend (Next.js + Tailwind)
+- Framework: Next.js 14 (App Router).
+- Styling: Tailwind CSS + `shadcn/ui`.
+- Charts: `recharts`.
+- **Mobile First:** Prioritize vertical layouts.
+
+## Testing (BDD)
+- Framework: `pytest` + `pytest-bdd` + `pytest-asyncio`.
+- **Workflow:**
+  1. Create `.feature` file in `backend/tests/features/`.
+  2. Generate failing step definitions.
+  3. Implement backend logic to pass.
+- **Note:** Use `visualization` (not `chart_type`) in code and tests to match API response format.
+
+# CODING BEHAVIOR
+- **No Hallucinations:** Validate libraries before using them.
+- **No Lazy Code:** Write full implementations.
+- **Diffs:** Show concise diffs for large files.
+- **Secrets:** Use `os.getenv` for `OPENAI_API_KEY`, `DATABASE_URL`, etc. Never hardcode.
