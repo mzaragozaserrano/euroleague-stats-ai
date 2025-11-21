@@ -16,12 +16,13 @@ Este plan detalla la arquitectura para un motor **Lenguaje Natural a SQL (Text-t
 ### Stack Tecnológico
 * **Frontend:** Next.js 14 (App Router), TypeScript, Tailwind CSS, Shadcn/ui, Recharts.
 * **Backend:** Python 3.11+, FastAPI.
+  * *Gestión de Dependencias:* Poetry (para manejo de dependencias y entornos virtuales).
 * **Base de Datos:** Neon (Serverless PostgreSQL) con `pgvector`.
 * **ORM:** SQLAlchemy (Async) con `NullPool` configurado.
 * **IA/LLM:**
     * *Orquestación:* LangChain o SDK de OpenAI.
     * *Inferencia:* OpenRouter (Claude 3.5 Haiku para velocidad/costo, Sonnet para lógica compleja).
-    * *Embeddings:* `w601sxs/b1ade-embed` (o modelo ligero similar) para la recuperación del esquema (schema retrieval).
+    * *Embeddings:* OpenAI `text-embedding-3-small` (via API) para la recuperación del esquema (schema retrieval). Se usa API para ahorrar RAM en Render.
 * **Infraestructura:** Render (Web Service), GitHub Actions (CI/CD + Cron).
 
 ---
@@ -58,7 +59,7 @@ Para prevenir alucinaciones y asegurar un SQL válido, utilizaremos un enfoque b
 3.  **Construcción del Prompt:**
     * *Sistema:* "Eres un experto en SQL de Postgres para datos de baloncesto de la Euroliga."
     * *Contexto:* "Aquí están las tablas relevantes: {retrieved_schema}. Usa estrictamente estas columnas."
-    * *Tarea:* "Genera una única consulta SQL para responder: {user_input}. Devuelve JSON con las claves: `sql_query`, `visualization_suggestion` (bar, line, table)."
+    * *Tarea:* "Genera una única consulta SQL para responder: {user_input}. Devuelve JSON con las claves: `sql` (string), `data` (json), `visualization` (string: 'bar', 'line', o 'table')."
 4.  **Ejecución:** Ejecutar SQL contra Neon.
 5.  **Seguridad (Safety):** Usuario de base de datos de solo lectura para la API para prevenir inyección/eliminación.
 
@@ -68,8 +69,8 @@ Dado que Neon es *serverless* y escala a cero, el *connection pooling* estándar
 * **Efecto:** Abre una conexión por solicitud y la cierra inmediatamente. Se basa en el PgBouncer interno de Neon.
 
 ### C. Endpoints de la API
-* `POST /api/chat`: Acepta `{ "query": string, "history": list }`. Devuelve `{ "data": list, "columns": list, "chart_type": string, "sql_generated": string }`.
-* `GET /health`: Un simple *ping* para las comprobaciones de salud de Render.
+* `POST /api/chat`: Acepta `{ "query": string, "history": list }`. Devuelve `{ "sql": string, "data": json, "visualization": string }`.
+* `GET /health`: Un simple *ping* (200 OK) para las comprobaciones de salud de Render.
 
 ---
 
@@ -78,9 +79,9 @@ Dado que Neon es *serverless* y escala a cero, el *connection pooling* estándar
 ### Componentes
 * **ChatInterface:** Maneja la entrada del usuario (*user input*), los estados de carga y muestra el flujo de conversación.
 * **DataVisualizer:** Un "Componente Inteligente" que toma la respuesta del *backend* y decide qué renderizar:
-    * Si `chart_type == 'line'`: Renderiza `<Recharts.LineChart />` (ej. puntos a lo largo del tiempo).
-    * Si `chart_type == 'bar'`: Renderiza `<Recharts.BarChart />` (ej. comparación de jugadores).
-    * Si `chart_type == 'table'`: Renderiza Shadcn `<Table />`.
+    * Si `visualization == 'line'`: Renderiza `<Recharts.LineChart />` (ej. puntos a lo largo del tiempo).
+    * Si `visualization == 'bar'`: Renderiza `<Recharts.BarChart />` (ej. comparación de jugadores).
+    * Si `visualization == 'table'`: Renderiza Shadcn `<Table />`.
 
 ### Gestión del Estado (State Management)
 * Usar React Context o Zustand para gestionar la sesión de historial del *chat* localmente.
@@ -108,8 +109,8 @@ Necesitamos una forma de costo cero para mantener los datos frescos.
 * **Tarea 1.3:** Configurar GitHub Action para hidratar la DB.
 
 ### Semana 2: El Cerebro (Backend & IA)
-* **Tarea 2.1:** Configurar FastAPI con `NullPool`.
-* **Tarea 2.2:** Implementar la lógica de recuperación RAG (incrustar definiciones de esquema).
+* **Tarea 2.1:** Configurar FastAPI con `NullPool`. Estructura: código en `backend/app/`, punto de entrada `app/main.py`.
+* **Tarea 2.2:** Implementar la lógica de recuperación RAG (vectorizar solo metadata del esquema: nombres de tablas, descripciones de columnas, ejemplos SQL). NO vectorizar datos de filas.
 * **Tarea 2.3:** Construir la cadena de *prompt* Text-to-SQL con OpenRouter.
 
 ### Semana 3: Experiencia (Frontend & Polish)
@@ -120,7 +121,11 @@ Necesitamos una forma de costo cero para mantener los datos frescos.
 ---
 
 ## 8. Restricciones y Estándares
+* **Estructura del Proyecto:**
+  * Backend: Código fuente en `backend/app/`, tests en `backend/tests/` (features Gherkin en `backend/tests/features/`).
+  * Frontend: Next.js 14 (App Router) en `frontend/`.
+  * Datos locales: `data/` (ignorado por git).
 * **Linting:** `ruff` para Python, `eslint` para TypeScript.
 * **Formato:** `black` (Python), `prettier` (JS/TS).
-* **Entorno:** Separación estricta de las variables `.env`. Nunca subir las claves al repositorio.
-* **Manejo de Errores:** La interfaz de usuario debe manejar elegantemente los fallos en la generación de SQL (ej. "No pude encontrar ese dato, intenta preguntar de forma más sencilla").
+* **Entorno:** Separación estricta de las variables `.env`. Nunca subir las claves al repositorio. Usar `os.getenv` para `OPENAI_API_KEY`, `DATABASE_URL`, etc.
+* **Manejo de Errores:** La interfaz de usuario debe manejar elegantemente los fallos en la generación de SQL (ej. "No pude encontrar ese dato, intenta preguntar de forma más sencilla"). El backend nunca debe crashear; siempre devolver errores estructurados en JSON.

@@ -17,7 +17,7 @@ Feature: Motor de Consulta de Estadísticas de la Euroliga mediante Lenguaje Nat
     When el usuario ingresa la consulta: "Comparativa de % de tiros libres entre Sloukas y James esta temporada" y presiona Enter
     Then el sistema debe mostrar el resultado en menos de 10 segundos
     And el sistema debe interpretar la consulta en SQL sin intervención humana
-    And el resultado debe ser presentado como una **Tabla comparativa** o un **Gráfico de Barras** (chart_type: 'table' o 'bar')
+    And el resultado debe ser presentado como una **Tabla comparativa** o un **Gráfico de Barras** (visualization: 'table' o 'bar')
     But el sistema no debe requerir que el usuario navegue a través de filtros o menús.
 
   ---
@@ -30,7 +30,7 @@ Feature: Motor de Consulta de Estadísticas de la Euroliga mediante Lenguaje Nat
     When el usuario ingresa la consulta: "Dame los 5 jugadores con el peor porcentaje defensivo en triples desde la esquina" y presiona Enter
     Then el sistema debe ejecutar la consulta Text-to-Spatial-SQL
     And el sistema debe devolver una lista de los 5 jugadores clasificados
-    And el resultado debe ser presentado con una visualización relevante, como un **Shot Chart** resaltando la zona "esquina" (chart_type: 'shot_chart')
+    And el resultado debe ser presentado con una visualización relevante, como un **Shot Chart** resaltando la zona "esquina" (visualization: 'shot_chart')
     And el usuario puede refinar la consulta a continuación (ej. "Fíltralo solo para bases").
 
   ---

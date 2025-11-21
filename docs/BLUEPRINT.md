@@ -167,15 +167,16 @@ La **solución crítica** es **deshabilitar** el pooling de conexiones del lado 
 
 ### B. El Núcleo de IA: Diseño del Motor Text-to-SQL + RAG (Enfoque MVP)
 
-El usuario identificó correctamente la necesidad de una arquitectura dual: un LLM para Text-to-SQL (vía OpenRouter) y un sistema RAG (con un modelo de embedding como Qwen3). Esta es la arquitectura correcta, ya que un LLM por sí solo no puede generar SQL preciso sin contexto. El desafío principal de Text-to-SQL es que los LLM "alucinan": inventan nombres de tablas, columnas o valores que no existen. El propósito de la Generación Aumentada por Recuperación (RAG) en este contexto es anclar el LLM a la realidad del esquema de la base de datos.
+El usuario identificó correctamente la necesidad de una arquitectura dual: un LLM para Text-to-SQL (vía OpenRouter) y un sistema RAG (con OpenAI `text-embedding-3-small` via API). Esta es la arquitectura correcta, ya que un LLM por sí solo no puede generar SQL preciso sin contexto. El desafío principal de Text-to-SQL es que los LLM "alucinan": inventan nombres de tablas, columnas o valores que no existen. El propósito de la Generación Aumentada por Recuperación (RAG) en este contexto es anclar el LLM a la realidad del esquema de la base de datos. Se usa embedding API (no modelo local) para ahorrar RAM en Render.
 
 **Flujo de Trabajo para el MVP (Estadísticas Básicas):**
-1.  **Indexación (Offline):** **No** se vectorizan las filas de estadísticas. En su lugar, se vectoriza el **esquema de la base de datos** de estadísticas básicas. Esto incluye: nombres de tablas (ej. `player_stats_basic`), descripciones de columnas (ej. "ppg es puntos por partido"), y **ejemplos de consultas SQL** funcionales. Esto se almacena en pgVector dentro del nivel gratuito de Neon.
+1.  **Indexación (Offline):** **No** se vectorizan las filas de estadísticas. En su lugar, se vectoriza el **esquema de la base de datos** de estadísticas básicas. Esto incluye: nombres de tablas (ej. `player_stats_basic`), descripciones de columnas (ej. "ppg es puntos por partido"), y **ejemplos de consultas SQL** funcionales (Few-Shot). Esto se almacena en pgVector dentro del nivel gratuito de Neon.
 2.  **Consulta (Online):**
     * a. El usuario pregunta: "Comparativa de puntos por partido entre Micic y Larkin".
-    * b. El RAG (usando Qwen3) convierte esa pregunta en un vector y busca en la base de datos de vectores (pgVector en Neon) los fragmentos de esquema y ejemplos más relevantes.
+    * b. El RAG (usando OpenAI `text-embedding-3-small` via API) convierte esa pregunta en un vector y busca en la base de datos de vectores (pgVector en Neon) los fragmentos de esquema y ejemplos más relevantes.
     * c. El RAG recupera contexto como: "Esquema: `player_stats_basic(player_id, ppg,...)`", "Esquema: `players(id, full_name)`", "Ejemplo: `SELECT... FROM player_stats_basic JOIN players...`".
     * d. La consulta al LLM (Claude 3.5 Sonnet, a través de OpenRouter) se "aumenta" con este contexto: "Contexto Relevante: [Esquema y ejemplos recuperados]. Pregunta del Usuario: '...'. Por favor, genera la consulta SQL.".
+    * **Nota:** Se usa OpenAI embedding API (no modelo local) para ahorrar RAM en Render.
 
 **Hoja de Ruta Post-MVP (La Característica "Pro"):**
 La consulta de ejemplo *"Dame los 5 jugadores que más puntos anotan desde la esquina del triple derecho"* debe ser **explícitamente** excluida del MVP de 3 semanas. Esta consulta introduce una complejidad mucho mayor.
