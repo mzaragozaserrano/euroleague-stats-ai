@@ -30,12 +30,13 @@ Los aficionados sofisticados (Fantasy, Apostadores, Analistas) sufren una fricci
 ## 4. Viajes del Usuario y Experiencias (User Journeys)
 
 ### Journey 1: La Consulta Rápida (The Quick Fact-Check) - MVP
-* **Trigger:** Un usuario está viendo un partido y surge un debate sobre quién es mejor tirador de libres.
+* **Trigger:** Un usuario está viendo un partido y surge un debate sobre quién es mejor tirador de libres **en la temporada actual**.
 * **Acción:** Entra en la web (móvil) y escribe: *"Comparativa de % de tiros libres entre Sloukas y James esta temporada"*.
 * **Resultado Esperado:**
     * No hay navegación por menús.
     * El sistema devuelve una **tabla comparativa** directa y un pequeño gráfico de barras.
     * Tiempo total: < 10 segundos.
+    * **Nota:** Los datos mostrados son estadísticas acumuladas hasta el último partido completado (actualizadas diariamente), no incluyen estadísticas del partido en curso.
 
 ### Journey 2: El Descubrimiento Profundo (The Deep Dive) - Post-MVP
 * **Trigger:** Un analista quiere escribir un hilo sobre la defensa de perímetro.
@@ -67,6 +68,47 @@ Los aficionados sofisticados (Fantasy, Apostadores, Analistas) sufren una fricci
 * **Experiencia Free (MVP):** Acceso ilimitado al motor de IA, pero restringido a **estadísticas básicas** (puntos, rebotes, asistencias, clasificaciones).
 * **Experiencia Pro:** Desbloqueo de acceso a **Estadísticas Avanzadas y Espaciales** (Shot Charts, PER, Win Shares).
 
+### E. Experiencia de Usuario (UX/UI) Específica y Comportamiento de IA
+
+* **Onboarding "Lienzo en Blanco":**
+    * Al cargar la aplicación sin historial, se deben mostrar **3-4 "Chips" de sugerencias** rotativas (ej: "Líderes de anotación", "Récord del Real Madrid", "Comparar bases").
+    * Objetivo: Reducir la carga cognitiva inicial y educar al usuario sobre el alcance del MVP.
+
+* **Gestión de Latencia (Cold Start):**
+    * Debido a la infraestructura serverless (Render Free Tier), el primer arranque tras inactividad puede demorar hasta 30s.
+    * Requisito: Si la respuesta tarda más de 3 segundos, la UI debe mostrar un estado específico de **"Despertando al Agente..."** o **"Calentando motores..."** con un micro-copy amigable, diferenciándolo de la carga habitual para evitar frustración.
+
+* **Continuidad Conversacional (Memoria):**
+    * El sistema debe soportar **preguntas de seguimiento** (Follow-up) básicas.
+    * Ejemplo: Si el usuario pregunta "Puntos de Micic" y seguidamente "¿Y de Larkin?", el sistema debe inferir el contexto ("Puntos") de la interacción anterior usando el historial del chat.
+
+* **Loop de Feedback:**
+    * Cada respuesta generada debe incluir controles discretos de **Válido/Inválido** (Thumbs up/down).
+    * Esto servirá para auditar la calidad del Text-to-SQL y detectar alucinaciones sin interrumpir el flujo del usuario.
+
+### F. Gestión de Límites, Errores y Persistencia
+
+* **Manejo de Límites (Quota Exceeded):**
+    * **Trigger:** Cuando el sistema recibe un error 429 o detecta que se ha alcanzado el límite de 50 consultas diarias (Free Tier OpenRouter).
+    * **Comportamiento UI:** Mostrar un mensaje no intrusivo pero claro: *"¡Has agotado tus consultas diarias! Vuelve mañana para más estadísticas gratis o actualiza a Pro para acceso ilimitado."*
+    * **Acción:** Bloquear el input de chat hasta el reset del día siguiente.
+
+* **Intercepción de Consultas Pro (Upsell):**
+    * **Trigger:** Un usuario Free solicita datos avanzados (ej. "Shot chart de Larkin" o "Puntos desde la esquina").
+    * **Comportamiento UI:** El sistema identifica la intención "Pro", pero en lugar de fallar, responde: *"Esa consulta requiere acceso a datos espaciales avanzados. Actualiza a Pro para visualizar shot charts."*
+    * **Componente:** Incluir un botón/CTA de "Ver planes" junto al mensaje.
+
+* **Persistencia de Sesión:**
+    * Utilizar `localStorage` para guardar el historial de chat del usuario.
+    * Al recargar la página, el usuario debe ver su última conversación, evitando la sensación de "pérdida de contexto" si refresca por error.
+
+* **Estados de Progreso Granulares (Feedback Loop):**
+    * En lugar de un *spinner* genérico, mostrar etiquetas de estado cambiantes para mantener la atención durante latencias medias:
+        1. *"Interpretando pregunta..."* (LLM processing)
+        2. *"Consultando base de datos..."* (SQL execution)
+        3. *"Generando gráficos..."* (Data rendering)
+    * **Timeout:** Si el proceso supera los 60s, mostrar error amigable: *"El árbitro está revisando la jugada (Timeout). Por favor, intenta una pregunta más simple."*
+
 ## 6. Definición del Éxito (Outcome Metrics)
 
 1.  **Time-to-Insight:** El usuario debe obtener el dato visualizado en menos de 5 segundos desde que termina de escribir la consulta.
@@ -77,4 +119,5 @@ Los aficionados sofisticados (Fantasy, Apostadores, Analistas) sufren una fricci
 ## 7. Restricciones y Límites
 * **Alcance MVP:** Solo datos de la Euroliga actual (o últimas temporadas recientes). No NBA, no ligas domésticas por ahora.
 * **Datos:** Nos basamos exclusivamente en datos oficiales estructurados. No hacemos *scraping* de narrativas de noticias o rumores.
-* **Dispositivo:** Mobile-first. La mayoría de las consultas ocurrirán en "segunda pantalla" mientras se ve un partido.
+* **Actualización de Datos:** Los datos se actualizan diariamente (una vez al día). El MVP **no incluye datos en tiempo real** del partido que está ocurriendo en ese momento. Las consultas durante un partido se refieren a estadísticas históricas, comparativas y acumuladas de temporada (ej. "¿Quién tiene mejor % de tiros libres esta temporada?"), no a estadísticas del partido en directo.
+* **Dispositivo:** Mobile-first. La mayoría de las consultas ocurrirán en "segunda pantalla" mientras se ve un partido, consultando estadísticas históricas para enriquecer la experiencia de visualización.
