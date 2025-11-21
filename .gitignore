@@ -82,3 +82,5 @@ secrets/
 *.key
 config.json
 
+# Ignorar archivo específico
+docs/MY_ROUTE.md
