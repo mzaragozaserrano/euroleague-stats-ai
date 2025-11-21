@@ -60,4 +60,3 @@ Este es un proyecto personal en desarrollo. Las contribuciones serán bienvenida
 - [Neon Database](https://neon.tech)
 - [OpenRouter](https://openrouter.ai)
 - [Render](https://render.com)
-
