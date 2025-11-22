@@ -27,10 +27,17 @@ Esta aplicación permite a los aficionados, analistas y jugadores de fantasy hac
 
 La documentación completa del proyecto se encuentra en la carpeta [`docs/`](./docs/):
 
+- [`ROADMAP.md`](./ROADMAP.md) - Plan completo de implementación del proyecto (3 semanas)
 - [`BLUEPRINT.md`](./docs/BLUEPRINT.md) - Análisis de viabilidad, mercado y arquitectura estratégica
 - [`TECHNICAL_PLAN.md`](./docs/TECHNICAL_PLAN.md) - Plan técnico detallado y arquitectura del sistema
 - [`SPECIFICATIONS.md`](./docs/SPECIFICATIONS.md) - Especificaciones funcionales del producto
 - [`SPECIFICATIONS_GHERKIN.md`](./docs/SPECIFICATIONS_GHERKIN.md) - Especificaciones en formato Gherkin para testing BDD
+
+### Historial de Fases
+
+Documentación histórica de fases completadas en [`docs/history/`](./docs/history/):
+- [`FASE_0_COMPLETADA.md`](./docs/history/FASE_0_COMPLETADA.md) - Resumen de la Fase 0: Scaffolding & Setup
+- [`SETUP_STATUS.md`](./docs/history/SETUP_STATUS.md) - Estado detallado del setup inicial
 
 ## Estado del Proyecto
 
@@ -42,9 +49,142 @@ La documentación completa del proyecto se encuentra en la carpeta [`docs/`](./d
 - **Semana 2**: El Cerebro (Backend & IA)
 - **Semana 3**: Experiencia (Frontend & Polish)
 
+## Prerrequisitos
+
+### Backend
+- **Python 3.11+**
+- **Poetry** - Gestor de dependencias Python
+- **PostgreSQL** con extensión `pgvector` (recomendado: [Neon](https://neon.tech))
+
+### Frontend
+- **Node.js 18+** - Descarga desde [nodejs.org](https://nodejs.org/)
+- **npm** - Incluido con Node.js
+- **Opcional**: [nvm-windows](https://github.com/coreybutler/nvm-windows) para gestión de versiones de Node.js
+
 ## Instalación y Configuración
 
-*Próximamente: instrucciones de instalación y configuración*
+### Backend
+
+1. **Instalar dependencias con Poetry:**
+```bash
+cd backend
+poetry install
+```
+
+2. **Configurar variables de entorno:**
+```bash
+cp .env.example .env
+# Editar .env con tus credenciales:
+# DATABASE_URL=postgresql+asyncpg://user:password@host/dbname
+# OPENAI_API_KEY=sk-...
+```
+
+3. **Ejecutar servidor de desarrollo:**
+```bash
+poetry run uvicorn app.main:app --reload
+```
+
+El backend estará disponible en:
+- API: http://localhost:8000
+- Documentación: http://localhost:8000/docs
+
+### Frontend
+
+1. **Instalar dependencias:**
+```bash
+cd frontend
+npm install
+```
+
+2. **Configurar variables de entorno:**
+```bash
+cp .env.local.example .env.local
+# Editar .env.local con la URL del backend
+```
+
+3. **Ejecutar servidor de desarrollo:**
+```bash
+npm run dev
+```
+
+El frontend estará disponible en: http://localhost:3000
+
+## Ejecución
+
+### Backend
+```powershell
+cd backend
+
+# Crear archivo .env con tus credenciales:
+# DATABASE_URL=postgresql+asyncpg://user:password@host/dbname
+# OPENAI_API_KEY=sk-...
+
+poetry run uvicorn app.main:app --reload
+```
+Disponible en: http://localhost:8000
+Documentación: http://localhost:8000/docs
+
+### Frontend
+```powershell
+cd frontend
+npm run dev
+```
+Disponible en: http://localhost:3000
+
+## Endpoints Disponibles
+
+### Backend
+- `GET /health` - Health check (funcionando)
+- `POST /api/chat` - Chat endpoint (placeholder, se implementará en Fase 2)
+
+### Frontend
+- `/` - Página principal con mensaje de bienvenida
+
+## Guía de Desarrollo
+
+### Backend
+
+```bash
+# Ejecutar tests
+poetry run pytest -v
+
+# Linting
+poetry run ruff check .
+
+# Formateo
+poetry run black .
+
+# Instalar nueva dependencia
+poetry add nombre-paquete
+```
+
+### Frontend
+
+#### Instalar componentes shadcn/ui
+
+Para añadir nuevos componentes UI de shadcn/ui:
+
+```bash
+cd frontend
+npx shadcn@latest add button
+npx shadcn@latest add input
+npx shadcn@latest add card
+npx shadcn@latest add table
+# ... más componentes según necesidad
+```
+
+#### Comandos útiles
+
+```bash
+# Build para producción
+npm run build
+
+# Linting
+npm run lint
+
+# Añadir componente shadcn/ui
+npx shadcn@latest add nombre-componente
+```
 
 ## Contribuir
 
