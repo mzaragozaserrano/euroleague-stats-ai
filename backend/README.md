@@ -21,6 +21,17 @@ cp .env.example .env
 # Editar .env con tus credenciales
 ```
 
+**Configuración de Neon (Base de Datos):**
+- El archivo `.env` ya está configurado con la URL de Neon
+- **IMPORTANTE**: La URL debe usar el formato `postgresql+asyncpg://` (no `postgresql://`)
+- Si obtienes la URL directamente de Neon, cambia `postgresql://` por `postgresql+asyncpg://`
+- Ejemplo: `postgresql+asyncpg://user:pass@ep-xxx.aws.neon.tech/dbname?sslmode=require`
+
+**Probar conexión a Neon:**
+```bash
+poetry run python scripts/test_db_connection.py
+```
+
 3. Ejecutar servidor de desarrollo:
 ```bash
 poetry run uvicorn app.main:app --reload
