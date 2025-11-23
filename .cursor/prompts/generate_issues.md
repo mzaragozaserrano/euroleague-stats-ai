@@ -73,22 +73,13 @@ Remove-Item Env:\GH_ISSUE_TITLE
 Si los métodos anteriores fallan, usa la API de GitHub directamente con JSON. Este método evita problemas de codificación:
 
 ```powershell
-# Función helper para leer archivos UTF-8 sin BOM
-function Read-Utf8File {
-    param([string]$Path)
-    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
-    $bytes = [System.IO.File]::ReadAllBytes($Path)
-    return $utf8NoBom.GetString($bytes)
-}
-
-# Leer título y body desde archivos
-$title = (Read-Utf8File "temp_title.txt").Trim()
-$body = Read-Utf8File "temp_body.md"
+# Configurar UTF-8 sin BOM
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
 
 # IMPORTANTE: Si creas los strings directamente en PowerShell con caracteres especiales,
-# usa códigos Unicode para evitar problemas de codificación:
-# $title = "[Fase 1.1] Dise" + [char]0x00F1 + "o del Esquema"  # ñ = 0x00F1
-# $body = "## Prop" + [char]0x00F3 + "sito`n`n..."  # ó = 0x00F3
+# DEBES usar códigos Unicode para evitar problemas de codificación:
+$title = "[Fase 1.1] Dise" + [char]0x00F1 + "o del Esquema de Base de Datos"  # ñ = 0x00F1
+$body = "## Prop" + [char]0x00F3 + "sito`n`nCrear el esquema inicial de la base de datos PostgreSQL con todas las tablas necesarias para almacenar datos de la Euroliga: equipos, jugadores, partidos, estad" + [char]0x00ED + "sticas y embeddings para RAG.`n`n## Contexto y Referencias`n`n* **Fase del Proyecto:** Fase 1.1 - Cimientos del Dominio`n* **Documentaci" + [char]0x00F3 + "n Base:** TECHNICAL_PLAN.md, SPECIFICATIONS.md"
 
 # Obtener información del repositorio
 $repoInfo = gh repo view --json owner,name | ConvertFrom-Json
@@ -102,7 +93,6 @@ $issueData = @{
 } | ConvertTo-Json -Depth 10
 
 # Guardar JSON en archivo temporal usando WriteAllBytes (sin BOM)
-$utf8NoBom = New-Object System.Text.UTF8Encoding $false
 $jsonBytes = $utf8NoBom.GetBytes($issueData)
 [System.IO.File]::WriteAllBytes("temp_issue.json", $jsonBytes)
 
@@ -110,10 +100,32 @@ $jsonBytes = $utf8NoBom.GetBytes($issueData)
 gh api repos/$repoPath/issues --method POST --input "temp_issue.json"
 
 # Limpiar
-Remove-Item "temp_title.txt", "temp_body.md", "temp_issue.json" -ErrorAction SilentlyContinue
+Remove-Item "temp_issue.json" -ErrorAction SilentlyContinue
 ```
 
-**Nota:** Este método es el más robusto porque `gh api` lee el JSON directamente desde el archivo sin pasar por la codificación de la línea de comandos de PowerShell. Si creas strings directamente en PowerShell con caracteres especiales (ñ, tildes), usa códigos Unicode como se muestra en el comentario.
+**Nota:** Este método es el más robusto porque `gh api` lee el JSON directamente desde el archivo sin pasar por la codificación de la línea de comandos de PowerShell. **OBLIGATORIO:** Si creas strings directamente en PowerShell con caracteres especiales (ñ, tildes), usa códigos Unicode como se muestra en el ejemplo.
+
+## Referencia Rápida: Códigos Unicode para Caracteres Españoles
+
+Cuando crees strings directamente en PowerShell, usa estos códigos Unicode para caracteres especiales:
+
+| Carácter | Código Unicode | Ejemplo PowerShell |
+|----------|----------------|---------------------|
+| `ñ` | `0x00F1` | `"Dise" + [char]0x00F1 + "o"` → `"Diseño"` |
+| `ó` | `0x00F3` | `"Prop" + [char]0x00F3 + "sito"` → `"Propósito"` |
+| `á` | `0x00E1` | `"est" + [char]0x00E1 + " creado"` → `"está creado"` |
+| `é` | `0x00E9` | `"m" + [char]0x00E9 + "todo"` → `"método"` |
+| `í` | `0x00ED` | `"estad" + [char]0x00ED + "sticas"` → `"estadísticas"` |
+| `ú` | `0x00FA` | `"b" + [char]0x00FA + "squeda"` → `"búsqueda"` |
+| `ü` | `0x00FC` | `"ling" + [char]0x00FC + "ista"` → `"lingüista"` |
+| `Ñ` | `0x00D1` | `"A" + [char]0x00D1 + "O"` → `"AÑO"` |
+| `Ó` | `0x00D3` | `"PROP" + [char]0x00D3 + "SITO"` → `"PROPÓSITO"` |
+
+**Ejemplo completo:**
+```powershell
+$title = "[Fase 1.1] Dise" + [char]0x00F1 + "o del Esquema de Base de Datos"
+$body = "## Prop" + [char]0x00F3 + "sito`n`nCrear el esquema inicial con estad" + [char]0x00ED + "sticas."
+```
 
 ## Reglas de Contenido
 * **Título:** `[{Fase}] {Nombre Tarea}` (Puede incluir tildes y ñ sin problemas).
