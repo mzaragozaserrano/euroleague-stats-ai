@@ -131,3 +131,50 @@ Verificar:
 - **Testing**: pytest configurado con modo asyncio automático
 - **Linting**: ruff y black configurados con line-length 100
 
+## Comandos Útiles
+
+### Backend
+```bash
+# Ejecutar tests
+poetry run pytest -v
+
+# Linting
+poetry run ruff check .
+
+# Formateo
+poetry run black .
+
+# Instalar nueva dependencia
+poetry add nombre-paquete
+
+# Probar conexión a Neon
+poetry run python scripts/test_db_connection.py
+```
+
+### Frontend
+```bash
+# Build para producción
+npm run build
+
+# Linting
+npm run lint
+
+# Añadir componente shadcn/ui
+npx shadcn@latest add nombre-componente
+```
+
+## Estado del Proyecto
+
+### Completitud de Fases
+- [x] **Fase 0: Scaffolding & Setup** - 100% COMPLETADA
+- [ ] Fase 1: Data Pipeline MVP - En progreso
+- [ ] Fase 2: Backend & AI Engine
+- [ ] Fase 3: Frontend MVP
+
+### Información de la Fase 0
+- **Fecha de inicio**: 22 de noviembre de 2025
+- **Fecha de completitud**: 23 de noviembre de 2025
+- **Duración estimada**: 1-2 días
+- **Duración real**: 1 sesión
+- **Estado**: ✅ Completada al 100%
+

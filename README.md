@@ -35,8 +35,9 @@ La documentación completa del proyecto se encuentra en la carpeta [`docs/`](./d
 
 ### Historial de Fases
 
-Documentación histórica de fases completadas en [`docs/history/`](./docs/history/):
+Documentación histórica de fases completadas y en progreso en [`docs/history/`](./docs/history/):
 - [`FASE_0_COMPLETADA.md`](./docs/history/FASE_0_COMPLETADA.md) - Resumen de la Fase 0: Scaffolding & Setup
+- [`FASE_1_EN_PROGRESO.md`](./docs/history/FASE_1_EN_PROGRESO.md) - Estado actual de la Fase 1: Data Pipeline MVP
 - [`SETUP_STATUS.md`](./docs/history/SETUP_STATUS.md) - Estado detallado del setup inicial
 
 ## Estado del Proyecto
