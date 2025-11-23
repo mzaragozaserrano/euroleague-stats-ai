@@ -6,15 +6,6 @@ La Fase 1 se centra en la creación del pipeline de datos que alimentará la bas
 
 ## Estado Actual
 
-### Completado
-- ✅ **Base de Datos Neon Configurada**
-  - Cuenta creada en Neon
-  - Proyecto creado en Neon
-  - Connection string configurado en `backend/.env` con formato `postgresql+asyncpg://`
-  - Script de prueba de conexión creado (`backend/scripts/test_db_connection.py`)
-  - Extensión pgvector instalada y verificada
-  - Conexión probada exitosamente (PostgreSQL 16.9)
-
 ### Pendiente
 
 1. **Diseño del Esquema de Base de Datos**
