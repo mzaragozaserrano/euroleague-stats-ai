@@ -104,15 +104,20 @@ Verificar:
 - http://localhost:8000/health
 - http://localhost:8000/docs
 
-## Base de Datos Neon - CONFIGURADA
+## Base de Datos Neon - CONFIGURADA ✅
 
 - [x] Cuenta creada en Neon
 - [x] Proyecto creado en Neon
 - [x] Connection string configurado en `backend/.env`
 - [x] Formato correcto: `postgresql+asyncpg://` (requerido para asyncpg)
 - [x] NullPool configurado en `database.py` (crítico para Neon Serverless)
+- [x] Extensión pgvector instalada y verificada
+- [x] Conexión probada exitosamente
 
-**Nota importante**: La URL de Neon debe usar el formato `postgresql+asyncpg://` en lugar de `postgresql://` para que funcione correctamente con el driver asyncpg.
+**Versión de PostgreSQL**: 16.9  
+**Extensiones activas**: pgvector
+
+**Nota importante**: La URL de Neon debe usar el formato `postgresql+asyncpg://...?ssl=require` en lugar de `postgresql://...?sslmode=require` para que funcione correctamente con el driver asyncpg.
 
 ## Próximos Pasos (Fase 1)
 

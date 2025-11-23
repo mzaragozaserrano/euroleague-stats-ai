@@ -12,13 +12,14 @@ La Fase 1 se centra en la creación del pipeline de datos que alimentará la bas
   - Proyecto creado en Neon
   - Connection string configurado en `backend/.env` con formato `postgresql+asyncpg://`
   - Script de prueba de conexión creado (`backend/scripts/test_db_connection.py`)
+  - Extensión pgvector instalada y verificada
+  - Conexión probada exitosamente (PostgreSQL 16.9)
 
 ### Pendiente
 
 1. **Diseño del Esquema de Base de Datos**
    - Crear archivo `backend/migrations/001_initial_schema.sql`
    - Tablas: teams, players, games, player_stats_games, schema_embeddings
-   - Habilitar extensión pgvector en Neon
 
 2. **Implementar Modelos SQLAlchemy**
    - `backend/app/models/team.py`

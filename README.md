@@ -81,9 +81,9 @@ cp .env.example .env
 # OPENAI_API_KEY=sk-...
 ```
 
-**Nota sobre Neon**: Si usas Neon (recomendado), la URL que proporcionan usa `postgresql://`. Debes cambiarla a `postgresql+asyncpg://` para que funcione con asyncpg. Ejemplo:
-- URL de Neon: `postgresql://user:pass@host/db`
-- URL para .env: `postgresql+asyncpg://user:pass@host/db`
+**Nota sobre Neon**: Si usas Neon (recomendado), la URL que proporcionan usa `postgresql://`. Debes cambiarla a `postgresql+asyncpg://` y usar `ssl=require` en lugar de `sslmode=require`. Ejemplo:
+- URL de Neon: `postgresql://user:pass@host/db?sslmode=require`
+- URL para .env: `postgresql+asyncpg://user:pass@host/db?ssl=require`
 
 3. **Ejecutar servidor de desarrollo:**
 ```bash
