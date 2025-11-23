@@ -66,13 +66,9 @@ chcp 65001 | Out-Null
 # Cargar función helper
 . .github/docs/utf8_helper.ps1
 
-# Convertir mensaje automáticamente si tiene caracteres especiales
+# Convertir mensaje automáticamente (la función es idempotente, no necesita verificación)
 $originalMsg = "Añadiendo documentación"
-if ($originalMsg -match '[ñóáéíúüÑÓÁÉÍÚÜ]') {
-    $msg = Get-UnicodeSafeString $originalMsg
-} else {
-    $msg = $originalMsg
-}
+$msg = Get-UnicodeSafeString $originalMsg
 git commit -m $msg
 ```
 

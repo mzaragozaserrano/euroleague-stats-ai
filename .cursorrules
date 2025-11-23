@@ -75,16 +75,17 @@ You strictly follow Test-Driven Development (TDD) using BDD (Gherkin) specificat
   1. Execute `git add .` in the terminal.
   2. **CRITICAL:** Automatically convert special characters (ñ, tildes) to Unicode codes:
      ```powershell
+     # Configurar UTF-8
+     chcp 65001 | Out-Null
+     [Console]::InputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+     $OutputEncoding = [System.Text.Encoding]::UTF8
+     
      # Cargar función helper
      . .github/docs/utf8_helper.ps1
      
-     # Convertir mensaje automáticamente si tiene caracteres especiales
+     # Convertir mensaje automáticamente (la función es idempotente)
      $originalMsg = "<message>"
-     if ($originalMsg -match '[ñóáéíúüÑÓÁÉÍÚÜ]') {
-         $msg = Get-UnicodeSafeString $originalMsg
-     } else {
-         $msg = $originalMsg
-     }
+     $msg = Get-UnicodeSafeString $originalMsg
      
      git commit -m $msg
      ```
@@ -159,13 +160,9 @@ cd C:\Users\Miguel\Desktop\Curso IA\proyecto
 git status
 git add .
 
-# Convertir mensaje automáticamente si tiene caracteres especiales
+# Convertir mensaje automáticamente (la función es idempotente)
 $originalMsg = "Actualizando documentación"
-if ($originalMsg -match '[ñóáéíúüÑÓÁÉÍÚÜ]') {
-    $msg = Get-UnicodeSafeString $originalMsg
-} else {
-    $msg = $originalMsg
-}
+$msg = Get-UnicodeSafeString $originalMsg
 git commit -m $msg
 
 git push
