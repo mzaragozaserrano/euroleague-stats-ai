@@ -10,6 +10,9 @@ Tu misión es crear los tickets en GitHub para las tareas pendientes.
 4.  **EJECUTA** la secuencia de comandos segura definida abajo.
 
 ## Protocolo OBLIGATORIO Anti-Mojibake (Windows)
+
+**IMPORTANTE:** Este protocolo aplica a TODO el proyecto (commits, issues, archivos). Ver `docs/WINDOWS_UTF8_SETUP.md` para documentación completa.
+
 En Windows, pasar texto con tildes directamente a `gh` rompe la codificación.
 **Debes seguir ESTRICTAMENTE este procedimiento para CADA issue:**
 
@@ -105,26 +108,21 @@ Remove-Item "temp_issue.json" -ErrorAction SilentlyContinue
 
 **Nota:** Este método es el más robusto porque `gh api` lee el JSON directamente desde el archivo sin pasar por la codificación de la línea de comandos de PowerShell. **OBLIGATORIO:** Si creas strings directamente en PowerShell con caracteres especiales (ñ, tildes), usa códigos Unicode como se muestra en el ejemplo.
 
-## Referencia Rápida: Códigos Unicode para Caracteres Españoles
+## Referencia Rápida: Códigos Unicode
 
-Cuando crees strings directamente en PowerShell, usa estos códigos Unicode para caracteres especiales:
+**Ver `docs/WINDOWS_UTF8_SETUP.md` para documentación completa y lista de códigos Unicode.**
 
-| Carácter | Código Unicode | Ejemplo PowerShell |
-|----------|----------------|---------------------|
-| `ñ` | `0x00F1` | `"Dise" + [char]0x00F1 + "o"` → `"Diseño"` |
-| `ó` | `0x00F3` | `"Prop" + [char]0x00F3 + "sito"` → `"Propósito"` |
-| `á` | `0x00E1` | `"est" + [char]0x00E1 + " creado"` → `"está creado"` |
-| `é` | `0x00E9` | `"m" + [char]0x00E9 + "todo"` → `"método"` |
-| `í` | `0x00ED` | `"estad" + [char]0x00ED + "sticas"` → `"estadísticas"` |
-| `ú` | `0x00FA` | `"b" + [char]0x00FA + "squeda"` → `"búsqueda"` |
-| `ü` | `0x00FC` | `"ling" + [char]0x00FC + "ista"` → `"lingüista"` |
-| `Ñ` | `0x00D1` | `"A" + [char]0x00D1 + "O"` → `"AÑO"` |
-| `Ó` | `0x00D3` | `"PROP" + [char]0x00D3 + "SITO"` → `"PROPÓSITO"` |
+Códigos más comunes:
+- `ñ` = `[char]0x00F1`
+- `ó` = `[char]0x00F3`
+- `á` = `[char]0x00E1`
+- `é` = `[char]0x00E9`
+- `í` = `[char]0x00ED`
+- `ú` = `[char]0x00FA`
 
-**Ejemplo completo:**
+**Ejemplo rápido:**
 ```powershell
-$title = "[Fase 1.1] Dise" + [char]0x00F1 + "o del Esquema de Base de Datos"
-$body = "## Prop" + [char]0x00F3 + "sito`n`nCrear el esquema inicial con estad" + [char]0x00ED + "sticas."
+$title = "[Fase 1.1] Dise" + [char]0x00F1 + "o del Esquema"
 ```
 
 ## Reglas de Contenido

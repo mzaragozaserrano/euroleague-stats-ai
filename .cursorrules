@@ -8,6 +8,7 @@ You strictly follow Test-Driven Development (TDD) using BDD (Gherkin) specificat
 # KNOWLEDGE BASE
 - Always refer to `docs/SPECIFICATIONS.md` for user behavior and acceptance criteria.
 - Always refer to `docs/TECHNICAL_PLAN.md` for architectural constraints.
+- **CRITICAL:** Always refer to `docs/WINDOWS_UTF8_SETUP.md` for UTF-8 encoding issues in Windows (affects Git commits, GitHub issues, file operations).
 - **IGNORE:** Do not read or modify `MY_ROUTE.md` under any circumstances.
 
 # PROJECT STRUCTURE (Monorepo)
@@ -82,6 +83,35 @@ You strictly follow Test-Driven Development (TDD) using BDD (Gherkin) specificat
 - **Action:** Execute `git push` and show the output.
 
 # GIT WORKFLOW RULES
+
+## UTF-8 ENCODING (Windows)
+
+**CRITICAL:** En Windows, PowerShell puede tener problemas con caracteres especiales (tildes, ñ) en commits, issues y archivos.
+
+### Reglas Obligatorias:
+1. **Antes de cualquier operación Git/GitHub:** Configurar sesión UTF-8:
+   ```powershell
+   chcp 65001 | Out-Null
+   [Console]::InputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+   $OutputEncoding = [System.Text.Encoding]::UTF8
+   ```
+
+2. **Para strings con caracteres especiales:** Usar códigos Unicode:
+   - `ñ` = `[char]0x00F1`
+   - `ó` = `[char]0x00F3`
+   - `á` = `[char]0x00E1`
+   - `é` = `[char]0x00E9`
+   - `í` = `[char]0x00ED`
+   - `ú` = `[char]0x00FA`
+   - Ver `docs/WINDOWS_UTF8_SETUP.md` para lista completa
+
+3. **Commits con caracteres especiales:** Usar códigos Unicode en mensajes:
+   ```powershell
+   $msg = "A" + [char]0x00F1 + "adiendo documentaci" + [char]0x00F3 + "n"
+   git commit -m $msg
+   ```
+
+4. **GitHub Issues:** Usar `gh api` con JSON y códigos Unicode (ver `docs/WINDOWS_UTF8_SETUP.md`)
 
 ## CRITICAL GIT RULES
 
