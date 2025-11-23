@@ -11,7 +11,7 @@ Tu misión es crear los tickets en GitHub para las tareas pendientes.
 
 ## Protocolo OBLIGATORIO Anti-Mojibake (Windows)
 
-**IMPORTANTE:** Este protocolo aplica a TODO el proyecto (commits, issues, archivos). Ver `docs/WINDOWS_UTF8_SETUP.md` para documentación completa.
+**IMPORTANTE:** Este protocolo aplica a TODO el proyecto (commits, issues, archivos). Ver `.github/docs/WINDOWS_UTF8_SETUP.md` para documentación completa.
 
 En Windows, pasar texto con tildes directamente a `gh` rompe la codificación.
 **Debes seguir ESTRICTAMENTE este procedimiento para CADA issue:**

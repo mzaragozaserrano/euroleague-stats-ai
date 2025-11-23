@@ -8,7 +8,7 @@ You strictly follow Test-Driven Development (TDD) using BDD (Gherkin) specificat
 # KNOWLEDGE BASE
 - Always refer to `docs/SPECIFICATIONS.md` for user behavior and acceptance criteria.
 - Always refer to `docs/TECHNICAL_PLAN.md` for architectural constraints.
-- **CRITICAL:** Always refer to `docs/WINDOWS_UTF8_SETUP.md` for UTF-8 encoding issues in Windows (affects Git commits, GitHub issues, file operations).
+- **CRITICAL:** Always refer to `.github/docs/WINDOWS_UTF8_SETUP.md` for UTF-8 encoding issues in Windows (affects Git commits, GitHub issues, file operations).
 - **IGNORE:** Do not read or modify `MY_ROUTE.md` under any circumstances.
 
 # PROJECT STRUCTURE (Monorepo)
@@ -73,7 +73,7 @@ You strictly follow Test-Driven Development (TDD) using BDD (Gherkin) specificat
 - **Trigger:** When I start a prompt with `/commit` followed by a message.
 - **Action:**
   1. Execute `git add .` in the terminal.
-  2. **CRITICAL:** If the message contains special characters (ñ, tildes), use Unicode codes as specified in `docs/WINDOWS_UTF8_SETUP.md`
+  2. **CRITICAL:** If the message contains special characters (ñ, tildes), use Unicode codes as specified in `.github/docs/WINDOWS_UTF8_SETUP.md`
   3. Execute `git commit -m "<message>"` using the message provided (with Unicode codes if needed).
   4. If no message is provided, ASK ME for one before running the command.
   5. Show the output.
@@ -89,13 +89,13 @@ You strictly follow Test-Driven Development (TDD) using BDD (Gherkin) specificat
 
 **CRITICAL:** En Windows, PowerShell puede tener problemas con caracteres especiales (tildes, ñ) en commits, issues y archivos.
 
-**TODA la información sobre codificación UTF-8, códigos Unicode y métodos está centralizada en `docs/WINDOWS_UTF8_SETUP.md`**
+**TODA la información sobre codificación UTF-8, códigos Unicode y métodos está centralizada en `.github/docs/WINDOWS_UTF8_SETUP.md`**
 
 ### Reglas Obligatorias:
-1. **SIEMPRE consultar `docs/WINDOWS_UTF8_SETUP.md`** antes de crear commits, issues o archivos con caracteres especiales
-2. **Antes de cualquier operación Git/GitHub:** Configurar sesión UTF-8 (ver `docs/WINDOWS_UTF8_SETUP.md`)
-3. **Para commits con caracteres especiales:** Usar códigos Unicode según `docs/WINDOWS_UTF8_SETUP.md`
-4. **Para GitHub Issues:** Seguir el protocolo en `docs/WINDOWS_UTF8_SETUP.md`
+1. **SIEMPRE consultar `.github/docs/WINDOWS_UTF8_SETUP.md`** antes de crear commits, issues o archivos con caracteres especiales
+2. **Antes de cualquier operación Git/GitHub:** Configurar sesión UTF-8 (ver `.github/docs/WINDOWS_UTF8_SETUP.md`)
+3. **Para commits con caracteres especiales:** Usar códigos Unicode según `.github/docs/WINDOWS_UTF8_SETUP.md`
+4. **Para GitHub Issues:** Seguir el protocolo en `.github/docs/WINDOWS_UTF8_SETUP.md`
 
 ## CRITICAL GIT RULES
 
@@ -110,7 +110,7 @@ You strictly follow Test-Driven Development (TDD) using BDD (Gherkin) specificat
 6. **MANDATORY:** Commit messages must use verbs in **GERUND** form (ending in -ando/-iendo)
    - ✅ Correct: "Actualizando documentaci" + [char]0x00F3 + "n", "Modificando configuraci" + [char]0x00F3 + "n", "A" + [char]0x00F1 + "adiendo tests"
    - ❌ Incorrect: "Actualizar documentaci" + [char]0x00F3 + "n", "Modificar configuraci" + [char]0x00F3 + "n", "A" + [char]0x00F1 + "adir tests"
-   - **CRITICAL:** Always use Unicode codes for special characters (see `docs/WINDOWS_UTF8_SETUP.md`)
+   - **CRITICAL:** Always use Unicode codes for special characters (see `.github/docs/WINDOWS_UTF8_SETUP.md`)
    - Conversion examples:
      - Actualizar → Actualizando
      - Modificar → Modificando
@@ -122,7 +122,7 @@ You strictly follow Test-Driven Development (TDD) using BDD (Gherkin) specificat
      - Mejorar → Mejorando
      - Implementar → Implementando
      - Configurar → Configurando
-   - **NOTE:** Apply this rule automatically without mentioning it to the user. Just use gerund form in commits AND Unicode codes for special characters (see `docs/WINDOWS_UTF8_SETUP.md`).
+   - **NOTE:** Apply this rule automatically without mentioning it to the user. Just use gerund form in commits AND Unicode codes for special characters (see `.github/docs/WINDOWS_UTF8_SETUP.md`).
 
 ### After commit:
 7. **ALWAYS** execute `git status` after each push to confirm no unversioned changes remain
@@ -134,7 +134,7 @@ You strictly follow Test-Driven Development (TDD) using BDD (Gherkin) specificat
 
 ## Standard commands:
 ```powershell
-# Configurar UTF-8 primero (ver docs/WINDOWS_UTF8_SETUP.md para detalles)
+# Configurar UTF-8 primero (ver .github/docs/WINDOWS_UTF8_SETUP.md para detalles)
 chcp 65001 | Out-Null
 [Console]::InputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
@@ -143,7 +143,7 @@ cd C:\Users\Miguel\Desktop\Curso IA\proyecto
 git status
 git add .
 
-# Crear mensaje con códigos Unicode si tiene caracteres especiales (ver docs/WINDOWS_UTF8_SETUP.md)
+# Crear mensaje con códigos Unicode si tiene caracteres especiales (ver .github/docs/WINDOWS_UTF8_SETUP.md)
 $msg = "Actualizando documentaci" + [char]0x00F3 + "n"  # documentación
 git commit -m $msg
 
@@ -151,4 +151,4 @@ git push
 git status  # Final verification
 ```
 
-**IMPORTANTE:** Para commits con caracteres especiales, SIEMPRE usar códigos Unicode según `docs/WINDOWS_UTF8_SETUP.md`. NUNCA usar strings literales con tildes o ñ directamente.
+**IMPORTANTE:** Para commits con caracteres especiales, SIEMPRE usar códigos Unicode según `.github/docs/WINDOWS_UTF8_SETUP.md`. NUNCA usar strings literales con tildes o ñ directamente.
