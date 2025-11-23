@@ -80,3 +80,49 @@ You strictly follow Test-Driven Development (TDD) using BDD (Gherkin) specificat
 ## !push
 - **Trigger:** When I type `/push`.
 - **Action:** Execute `git push` and show the output.
+
+# GIT WORKFLOW RULES
+
+## CRITICAL GIT RULES
+
+### Before committing:
+1. **ALWAYS** execute `git status` from project root to verify ALL modified files
+2. **NEVER** make partial commits without explicit user justification
+3. **ALWAYS** use `git add .` from project root (`C:\Users\Miguel\Desktop\Curso IA\proyecto`) to include ALL changes
+
+### During commit:
+4. If multiple files are modified related to the same change, include them ALL in the same commit
+5. If files remain unversioned after a commit, make an additional commit immediately
+6. **MANDATORY:** Commit messages must use verbs in **GERUND** form (ending in -ando/-iendo)
+   - ✅ Correct: "Actualizando documentación", "Modificando configuración", "Añadiendo tests"
+   - ❌ Incorrect: "Actualizar documentación", "Modificar configuración", "Añadir tests"
+   - Conversion examples:
+     - Actualizar → Actualizando
+     - Modificar → Modificando
+     - Editar → Editando
+     - Crear → Creando
+     - Eliminar → Eliminando
+     - Añadir → Añadiendo
+     - Corregir → Corrigiendo
+     - Mejorar → Mejorando
+     - Implementar → Implementando
+     - Configurar → Configurando
+   - **NOTE:** Apply this rule automatically without mentioning it to the user. Just use gerund form in commits.
+
+### After commit:
+7. **ALWAYS** execute `git status` after each push to confirm no unversioned changes remain
+8. If `git status` shows modified files after a push, commit and push immediately
+
+### Final verification:
+9. Before finishing any task involving file changes, verify with `git status` that everything is versioned
+10. If user mentions unversioned files, it's a critical error that must be corrected immediately
+
+## Standard commands:
+```bash
+cd C:\Users\Miguel\Desktop\Curso IA\proyecto
+git status
+git add .
+git commit -m "Actualizando documentación"  # Example with gerund
+git push
+git status  # Final verification
+```
