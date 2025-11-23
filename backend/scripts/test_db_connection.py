@@ -20,7 +20,7 @@ async def test_connection():
         async with engine.connect() as conn:
             result = await conn.execute(text("SELECT version();"))
             version = result.scalar_one()
-            print(f"[OK] Conexión exitosa!")
+            print("[OK] Conexión exitosa!")
             print(f"Versión de PostgreSQL: {version}")
             
             # Probar que pgvector está disponible
@@ -28,7 +28,7 @@ async def test_connection():
                 result = await conn.execute(text("SELECT extname FROM pg_extension WHERE extname = 'vector';"))
                 ext = result.scalar_one_or_none()
                 if ext:
-                    print(f"[OK] Extensión pgvector instalada")
+                    print("[OK] Extensión pgvector instalada")
                 else:
                     print("[INFO] Extensión pgvector no instalada (se instalará más adelante)")
             except Exception as e:
