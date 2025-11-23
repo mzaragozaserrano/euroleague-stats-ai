@@ -24,8 +24,11 @@ cp .env.example .env
 **Configuración de Neon (Base de Datos):**
 - El archivo `.env` ya está configurado con la URL de Neon
 - **IMPORTANTE**: La URL debe usar el formato `postgresql+asyncpg://` (no `postgresql://`)
-- Si obtienes la URL directamente de Neon, cambia `postgresql://` por `postgresql+asyncpg://`
-- Ejemplo: `postgresql+asyncpg://user:pass@ep-xxx.aws.neon.tech/dbname?sslmode=require`
+- **IMPORTANTE**: Usar `ssl=require` en lugar de `sslmode=require` para asyncpg
+- Si obtienes la URL directamente de Neon, cambia:
+  - `postgresql://` → `postgresql+asyncpg://`
+  - `sslmode=require` → `ssl=require`
+- Ejemplo: `postgresql+asyncpg://user:pass@ep-xxx.aws.neon.tech/dbname?ssl=require`
 
 **Probar conexión a Neon:**
 ```bash
