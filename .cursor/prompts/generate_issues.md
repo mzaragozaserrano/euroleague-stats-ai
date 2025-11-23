@@ -79,10 +79,25 @@ Si los métodos anteriores fallan, usa la API de GitHub directamente con JSON. E
 # Configurar UTF-8 sin BOM
 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
 
-# IMPORTANTE: Si creas los strings directamente en PowerShell con caracteres especiales,
-# DEBES usar códigos Unicode para evitar problemas de codificación:
-$title = "[Fase 1.1] Dise" + [char]0x00F1 + "o del Esquema de Base de Datos"  # ñ = 0x00F1
-$body = "## Prop" + [char]0x00F3 + "sito`n`nCrear el esquema inicial de la base de datos PostgreSQL con todas las tablas necesarias para almacenar datos de la Euroliga: equipos, jugadores, partidos, estad" + [char]0x00ED + "sticas y embeddings para RAG.`n`n## Contexto y Referencias`n`n* **Fase del Proyecto:** Fase 1.1 - Cimientos del Dominio`n* **Documentaci" + [char]0x00F3 + "n Base:** TECHNICAL_PLAN.md, SPECIFICATIONS.md"
+# Cargar función helper para conversión automática
+. .github/docs/utf8_helper.ps1
+
+# Crear strings normalmente - la función los convertirá automáticamente
+$originalTitle = "[Fase 1.1] Diseño del Esquema de Base de Datos"
+$originalBody = "## Propósito`n`nCrear el esquema inicial de la base de datos PostgreSQL con todas las tablas necesarias para almacenar datos de la Euroliga: equipos, jugadores, partidos, estadísticas y embeddings para RAG.`n`n## Contexto y Referencias`n`n* **Fase del Proyecto:** Fase 1.1 - Cimientos del Dominio`n* **Documentación Base:** TECHNICAL_PLAN.md, SPECIFICATIONS.md"
+
+# Convertir automáticamente si tienen caracteres especiales
+if ($originalTitle -match '[ñóáéíúüÑÓÁÉÍÚÜ]') {
+    $title = Get-UnicodeSafeString $originalTitle
+} else {
+    $title = $originalTitle
+}
+
+if ($originalBody -match '[ñóáéíúüÑÓÁÉÍÚÜ]') {
+    $body = Get-UnicodeSafeString $originalBody
+} else {
+    $body = $originalBody
+}
 
 # Obtener información del repositorio
 $repoInfo = gh repo view --json owner,name | ConvertFrom-Json
@@ -106,24 +121,26 @@ gh api repos/$repoPath/issues --method POST --input "temp_issue.json"
 Remove-Item "temp_issue.json" -ErrorAction SilentlyContinue
 ```
 
-**Nota:** Este método es el más robusto porque `gh api` lee el JSON directamente desde el archivo sin pasar por la codificación de la línea de comandos de PowerShell. **OBLIGATORIO:** Si creas strings directamente en PowerShell con caracteres especiales (ñ, tildes), usa códigos Unicode como se muestra en el ejemplo.
+**Nota:** Este método es el más robusto porque `gh api` lee el JSON directamente desde el archivo sin pasar por la codificación de la línea de comandos de PowerShell. **RECOMENDADO:** Usar la función `Get-UnicodeSafeString` del helper (`.github/docs/utf8_helper.ps1`) para conversión automática de caracteres especiales.
 
-## Referencia Rápida: Códigos Unicode
+## Conversión Automática de Caracteres Especiales
 
-**Ver `docs/WINDOWS_UTF8_SETUP.md` para documentación completa y lista de códigos Unicode.**
+**RECOMENDADO:** Usar la función helper automática (ver `.github/docs/WINDOWS_UTF8_SETUP.md`):
 
-Códigos más comunes:
-- `ñ` = `[char]0x00F1`
-- `ó` = `[char]0x00F3`
-- `á` = `[char]0x00E1`
-- `é` = `[char]0x00E9`
-- `í` = `[char]0x00ED`
-- `ú` = `[char]0x00FA`
-
-**Ejemplo rápido:**
 ```powershell
-$title = "[Fase 1.1] Dise" + [char]0x00F1 + "o del Esquema"
+# Cargar función helper
+. .github/docs/utf8_helper.ps1
+
+# Crear strings normalmente - se convierten automáticamente
+$originalMsg = "Añadir documentación"
+if ($originalMsg -match '[ñóáéíúüÑÓÁÉÍÚÜ]') {
+    $msg = Get-UnicodeSafeString $originalMsg
+} else {
+    $msg = $originalMsg
+}
 ```
+
+**Nota:** Para métodos manuales o referencia completa de códigos Unicode, ver `.github/docs/WINDOWS_UTF8_SETUP.md`.
 
 ## Reglas de Contenido
 * **Título:** `[{Fase}] {Nombre Tarea}` (Puede incluir tildes y ñ sin problemas).

@@ -54,14 +54,38 @@ git commit -m $title
 
 ## Uso en Git Commits
 
-Para commits con caracteres especiales:
+### Método Automático (RECOMENDADO)
+
+Usa la función helper para conversión automática:
+
+```powershell
+# Configurar sesión UTF-8
+chcp 65001 | Out-Null
+[Console]::InputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
+# Cargar función helper
+. .github/docs/utf8_helper.ps1
+
+# Convertir mensaje automáticamente si tiene caracteres especiales
+$originalMsg = "Añadiendo documentación"
+if ($originalMsg -match '[ñóáéíúüÑÓÁÉÍÚÜ]') {
+    $msg = Get-UnicodeSafeString $originalMsg
+} else {
+    $msg = $originalMsg
+}
+git commit -m $msg
+```
+
+### Método Manual (Alternativa)
+
+Si prefieres hacerlo manualmente:
 
 ```powershell
 # Configurar sesión UTF-8 (ver arriba)
 chcp 65001 | Out-Null
 [Console]::InputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
-# Crear mensaje con códigos Unicode si es necesario
+# Crear mensaje con códigos Unicode manualmente
 $message = "A" + [char]0x00F1 + "adiendo documentaci" + [char]0x00F3 + "n"
 git commit -m $message
 ```
@@ -110,8 +134,24 @@ $bytes = [System.IO.File]::ReadAllBytes("archivo.txt")
 $content = $utf8NoBom.GetString($bytes)
 ```
 
+## Función Helper Automática
+
+Para facilitar la conversión automática, se proporciona una función helper en `.github/docs/utf8_helper.ps1`:
+
+```powershell
+# Cargar la función
+. .github/docs/utf8_helper.ps1
+
+# Usar la función para convertir automáticamente
+$safeString = Get-UnicodeSafeString "Añadir documentación"
+# Resultado: String con ñ y ó convertidos a códigos Unicode internamente
+```
+
+Esta función detecta automáticamente caracteres especiales y los convierte, evitando tener que hacerlo manualmente.
+
 ## Referencias
 
 - Ver `.cursor/prompts/generate_issues.md` para ejemplos específicos de creación de issues
 - Ver `.cursorrules` para reglas generales del proyecto
+- Ver `.github/docs/utf8_helper.ps1` para la función helper de conversión automática
 

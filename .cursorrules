@@ -73,11 +73,24 @@ You strictly follow Test-Driven Development (TDD) using BDD (Gherkin) specificat
 - **Trigger:** When I start a prompt with `/commit` followed by a message.
 - **Action:**
   1. Execute `git add .` in the terminal.
-  2. **CRITICAL:** If the message contains special characters (ñ, tildes), use Unicode codes as specified in `.github/docs/WINDOWS_UTF8_SETUP.md`
-  3. Execute `git commit -m "<message>"` using the message provided (with Unicode codes if needed).
-  4. If no message is provided, ASK ME for one before running the command.
-  5. Show the output.
-  6. **DO NOT push** unless I explicitly say so.
+  2. **CRITICAL:** Automatically convert special characters (ñ, tildes) to Unicode codes:
+     ```powershell
+     # Cargar función helper
+     . .github/docs/utf8_helper.ps1
+     
+     # Convertir mensaje automáticamente si tiene caracteres especiales
+     $originalMsg = "<message>"
+     if ($originalMsg -match '[ñóáéíúüÑÓÁÉÍÚÜ]') {
+         $msg = Get-UnicodeSafeString $originalMsg
+     } else {
+         $msg = $originalMsg
+     }
+     
+     git commit -m $msg
+     ```
+  3. If no message is provided, ASK ME for one before running the command.
+  4. Show the output.
+  5. **DO NOT push** unless I explicitly say so.
 
 ## !push
 - **Trigger:** When I type `/push`.
@@ -134,21 +147,29 @@ You strictly follow Test-Driven Development (TDD) using BDD (Gherkin) specificat
 
 ## Standard commands:
 ```powershell
-# Configurar UTF-8 primero (ver .github/docs/WINDOWS_UTF8_SETUP.md para detalles)
+# Configurar UTF-8 primero
 chcp 65001 | Out-Null
 [Console]::InputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
+
+# Cargar función helper para conversión automática
+. .github/docs/utf8_helper.ps1
 
 cd C:\Users\Miguel\Desktop\Curso IA\proyecto
 git status
 git add .
 
-# Crear mensaje con códigos Unicode si tiene caracteres especiales (ver .github/docs/WINDOWS_UTF8_SETUP.md)
-$msg = "Actualizando documentaci" + [char]0x00F3 + "n"  # documentación
+# Convertir mensaje automáticamente si tiene caracteres especiales
+$originalMsg = "Actualizando documentación"
+if ($originalMsg -match '[ñóáéíúüÑÓÁÉÍÚÜ]') {
+    $msg = Get-UnicodeSafeString $originalMsg
+} else {
+    $msg = $originalMsg
+}
 git commit -m $msg
 
 git push
 git status  # Final verification
 ```
 
-**IMPORTANTE:** Para commits con caracteres especiales, SIEMPRE usar códigos Unicode según `.github/docs/WINDOWS_UTF8_SETUP.md`. NUNCA usar strings literales con tildes o ñ directamente.
+**IMPORTANTE:** Para commits con caracteres especiales, usar automáticamente la función `Get-UnicodeSafeString` del helper (ver `.github/docs/WINDOWS_UTF8_SETUP.md`). NUNCA usar strings literales con tildes o ñ directamente.
