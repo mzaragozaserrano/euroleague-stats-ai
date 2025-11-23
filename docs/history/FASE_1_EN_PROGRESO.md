@@ -90,6 +90,7 @@ La Fase 1 se centra en la creación del pipeline de datos que alimentará la bas
 - [`TECHNICAL_PLAN.md`](../TECHNICAL_PLAN.md) - Plan técnico detallado
 - [`SPECIFICATIONS.md`](../SPECIFICATIONS.md) - Especificaciones funcionales
 - [`SPECIFICATIONS_GHERKIN.md`](../SPECIFICATIONS_GHERKIN.md) - Especificaciones en formato Gherkin
+- [Issues de GitHub - Fase 1](https://github.com/mzaragozaserrano/euroleague-stats-ai/issues?q=is%3Aopen+label%3Afase-1.1+label%3Afase-1.2+label%3Afase-1.3) - Tareas detalladas con dependencias y labels
 
 ---
 
