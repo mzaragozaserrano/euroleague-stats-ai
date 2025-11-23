@@ -84,26 +84,44 @@ Para completar el setup del frontend, necesitas:
 
 ## Verificación del Backend
 
-El backend está listo para ejecutarse (requiere configurar .env):
+El backend está listo para ejecutarse:
 
 ```bash
 cd backend
 poetry install
-# Crear .env con tus credenciales (DATABASE_URL, OPENAI_API_KEY)
+# El archivo .env ya está configurado con DATABASE_URL de Neon
+# Solo falta agregar OPENAI_API_KEY cuando sea necesario
 poetry run uvicorn app.main:app --reload
+```
+
+**Probar conexión a Neon:**
+```bash
+cd backend
+poetry run python scripts/test_db_connection.py
 ```
 
 Verificar:
 - http://localhost:8000/health
 - http://localhost:8000/docs
 
+## Base de Datos Neon - CONFIGURADA
+
+- [x] Cuenta creada en Neon
+- [x] Proyecto creado en Neon
+- [x] Connection string configurado en `backend/.env`
+- [x] Formato correcto: `postgresql+asyncpg://` (requerido para asyncpg)
+- [x] NullPool configurado en `database.py` (crítico para Neon Serverless)
+
+**Nota importante**: La URL de Neon debe usar el formato `postgresql+asyncpg://` en lugar de `postgresql://` para que funcione correctamente con el driver asyncpg.
+
 ## Próximos Pasos (Fase 1)
 
-1. Configurar base de datos Neon
+1. ~~Configurar base de datos Neon~~ ✅ **COMPLETADO**
 2. Crear esquema de base de datos (migrations/001_initial_schema.sql)
-3. Implementar modelos SQLAlchemy
-4. Implementar cliente de Euroleague API
-5. Crear scripts ETL
+3. Habilitar extensión pgvector en Neon
+4. Implementar modelos SQLAlchemy
+5. Implementar cliente de Euroleague API
+6. Crear scripts ETL
 
 ## Notas Importantes
 

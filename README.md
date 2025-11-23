@@ -76,8 +76,13 @@ poetry install
 cp .env.example .env
 # Editar .env con tus credenciales:
 # DATABASE_URL=postgresql+asyncpg://user:password@host/dbname
+# IMPORTANTE: Usar postgresql+asyncpg:// (no postgresql://) para asyncpg driver
 # OPENAI_API_KEY=sk-...
 ```
+
+**Nota sobre Neon**: Si usas Neon (recomendado), la URL que proporcionan usa `postgresql://`. Debes cambiarla a `postgresql+asyncpg://` para que funcione con asyncpg. Ejemplo:
+- URL de Neon: `postgresql://user:pass@host/db`
+- URL para .env: `postgresql+asyncpg://user:pass@host/db`
 
 3. **Ejecutar servidor de desarrollo:**
 ```bash
@@ -115,10 +120,13 @@ El frontend estará disponible en: http://localhost:3000
 ```powershell
 cd backend
 
-# Crear archivo .env con tus credenciales:
-# DATABASE_URL=postgresql+asyncpg://user:password@host/dbname
-# OPENAI_API_KEY=sk-...
+# El archivo .env ya está configurado con DATABASE_URL de Neon
+# Solo falta agregar OPENAI_API_KEY cuando sea necesario para embeddings
 
+# Probar conexión a Neon (opcional):
+poetry run python scripts/test_db_connection.py
+
+# Ejecutar servidor:
 poetry run uvicorn app.main:app --reload
 ```
 Disponible en: http://localhost:8000

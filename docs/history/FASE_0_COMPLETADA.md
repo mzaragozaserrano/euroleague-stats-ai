@@ -73,11 +73,11 @@ Según el ROADMAP.md, la Fase 1 incluye:
    - Crear archivo `backend/migrations/001_initial_schema.sql`
    - Tablas: teams, players, games, player_stats_games, schema_embeddings
 
-2. **Configurar Base de Datos Neon**
-   - Crear cuenta en Neon
-   - Crear proyecto "euroleague-ai"
-   - Habilitar extensión pgvector
-   - Copiar connection string a `backend/.env`
+2. **Configurar Base de Datos Neon** ✅ **COMPLETADO**
+   - ✅ Cuenta creada en Neon
+   - ✅ Proyecto creado en Neon
+   - ✅ Connection string configurado en `backend/.env` con formato `postgresql+asyncpg://`
+   - ⏳ Habilitar extensión pgvector (próximo paso)
 
 3. **Implementar Modelos SQLAlchemy**
    - `backend/app/models/team.py`
