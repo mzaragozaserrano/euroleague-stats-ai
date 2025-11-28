@@ -37,6 +37,16 @@ jobs:
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
         run: poetry install --no-interaction --no-ansi
       
+      - name: Verify files exist
+        working-directory: ./backend
+        run: |
+          echo "Verifying ETL files exist..."
+          ls -la etl/
+          ls -la scripts/
+          test -f scripts/run_all_etl.py || (echo "run_all_etl.py not found!" && exit 1)
+          test -f etl/ingest_teams.py || (echo "ingest_teams.py not found!" && exit 1)
+          echo "All files verified ✓"
+      
       - name: Run All ETLs
         working-directory: ./backend
         run: poetry run python scripts/run_all_etl.py
