@@ -14,7 +14,17 @@ Escribir tests BDD (pytest-bdd) para validar la calidad del SQL generado. Crear 
 - **Issue #32 (In Progress):** Text-to-SQL service with OpenRouter integration and prompt engineering.
 
 ## Active Problems / Blockers
-- **Issue #34 (In Progress):** Testing BDD para SQL generation - validación de safety, edge cases, integración con chat history.
+- None currently
+
+## Completed in Issue #34
+1. **BDD Tests (15 scenarios):** Validación de SQL generation con pytest-bdd.
+   - ORDER BY/LIMIT/GROUP BY en queries
+   - SQL injection prevention (DROP/DELETE/UPDATE/INSERT)
+   - RAG retrieval con/sin historial
+   - NULL handling, caracteres especiales, performance
+2. **Unit Tests:** 27 tests para TextToSQLService + 11 para VectorizationService.
+3. **SQL Safety:** Validación robusta de queries peligrosas.
+4. **Total Tests:** 68+ tests pasados (15 BDD + 53 unit tests).
 
 ## Completed in Issue #33
 1. **BDD Tests:** 12 scenarios en `chat_endpoint.feature` con step definitions.
