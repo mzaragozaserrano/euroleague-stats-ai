@@ -614,14 +614,17 @@ Feature: ETL Data Ingestion
 
 **GitHub Action:**
 - ✅ Workflow creado en `.github/workflows/etl_daily.yml`
-- ⚠️ **Pendiente:** Configurar `DATABASE_URL` en GitHub Secrets para automatización
-- 📝 **Nota:** El workflow está listo, pero requiere configuración de secrets para ejecutarse en GitHub Actions
+- ✅ Workflow funcionando correctamente en GitHub Actions
+- ✅ Secret `DATABASE_URL` configurado
+- ✅ Ejecución manual y programada (diaria a las 8 AM UTC) operativa
+- 📝 **Nota:** El workflow ejecuta todos los ETLs en secuencia usando `backend/scripts/run_all_etl.py`
 
 **Base de Datos Poblada:**
 - ✅ Tablas creadas usando `backend/scripts/create_tables.py`
 - ✅ Datos de prueba insertados usando `backend/scripts/populate_test_data.py`
 - ✅ Datos actuales: 5 equipos, 6 jugadores, 3 partidos, 3 estadísticas
-- ⚠️ **Nota sobre API:** La API de Euroleague requiere verificación de endpoints (actualmente devuelve 404/400). Los ETLs están implementados y funcionarán una vez se resuelva el acceso a la API.
+- ✅ Base de datos lista para uso en desarrollo y pruebas
+- ⚠️ **Nota sobre API:** La API de Euroleague requiere verificación de endpoints (actualmente devuelve 404/400). Los ETLs están implementados y funcionarán una vez se resuelva el acceso a la API. Mientras tanto, se pueden usar datos de prueba.
 
 **Scripts Disponibles:**
 - `backend/scripts/create_tables.py` - Crear tablas en la BD
