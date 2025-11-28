@@ -1,9 +1,9 @@
 # Active Context
 
 ## Current Focus
-**Issue #32: 2.3 Text-to-SQL Service - Ingeniería de prompts e integración con LLM**
+**Issue #33: 2.4 Chat Endpoint - Conectar /api/chat al motor de IA**
 
-Implementando el servicio que convierte consultas en SQL usando LLM (OpenRouter). Incluye diseño de prompts con System + Few-Shot examples, validación de SQL generado y manejo de errores estructurado.
+Orquestación completa del pipeline de IA: vectorización → RAG retrieval → generación SQL → ejecución. Implementar POST /api/chat que retorna {sql, data, visualization, error?} con manejo robusto de errores.
 
 ## Recent Decisions & Achievements
 - **ETL Completed:** We have a robust, tested ETL pipeline running daily on GitHub Actions.
@@ -11,13 +11,14 @@ Implementando el servicio que convierte consultas en SQL usando LLM (OpenRouter)
 - **Tech Choice:** Validated `pytest-bdd` + `pytest-asyncio` workflow works perfectly for our async FastAPI backend.
 - **Infrastructure:** Confirmed `NullPool` configuration is working for Neon connectivity.
 - **Issue #30 Completed:** Vectorization service implemented with embeddings generation and storage.
+- **Issue #32 (In Progress):** Text-to-SQL service with OpenRouter integration and prompt engineering.
 
 ## Active Problems / Blockers
 - **None currently.** The foundation is stable.
 
 ## Next Steps (Immediate)
-1. **Implement Text-to-SQL Service:** Create `backend/app/services/text_to_sql.py` with `generate_sql(query: str, schema_context: str)` function.
-2. **Design Prompt Engineering:** System prompt + Few-Shot SQL examples for common query patterns.
-3. **Integrate OpenRouter API:** Call LLM with low-cost model, handle rate limits and errors.
-4. **SQL Validation:** Reject DROP/DELETE statements and malicious queries.
-5. **Structured Response:** Return JSON with `{sql, data, visualization, latency}` format.
+1. **Write BDD Tests:** Scenarios para chat endpoint (query exitosa, errores, visualización).
+2. **Implement Chat Endpoint:** Orquestar VectorizationService → RAG → SQL Generation → Execution.
+3. **Error Handling:** Todos los errores retornan status 200 con campo error en JSON.
+4. **Response Format:** {sql, data, visualization, error?} con latencia < 5s.
+5. **Logging:** stdout logs de RAG retrieval para debugging.
