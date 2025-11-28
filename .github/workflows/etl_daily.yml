@@ -1,0 +1,63 @@
+name: Daily ETL
+
+on:
+  schedule:
+    - cron: '0 8 * * *'  # 8 AM UTC diario
+  workflow_dispatch:  # Permitir ejecución manual
+
+jobs:
+  etl:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+      
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: backend/.venv
+          key: venv-${{ runner.os }}-3.11-${{ hashFiles('backend/poetry.lock') }}
+      
+      - name: Install dependencies
+        working-directory: ./backend
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction --no-ansi
+      
+      - name: Verify files exist
+        working-directory: ./backend
+        run: |
+          echo "Verifying ETL files exist..."
+          ls -la etl/ || echo "etl/ directory not found"
+          ls -la scripts/ || echo "scripts/ directory not found"
+          pwd
+          find . -name "run_all_etl.py" -type f || echo "run_all_etl.py not found"
+          find . -name "ingest_teams.py" -type f || echo "ingest_teams.py not found"
+      
+      - name: Run All ETLs
+        working-directory: ./backend
+        run: |
+          export PYTHONPATH="${PWD}:${PYTHONPATH}"
+          poetry run python scripts/run_all_etl.py
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        continue-on-error: true
+      
+      - name: ETL Summary
+        if: always()
+        run: |
+          echo "ETL execution completed"
+          echo "Check logs above for details"
