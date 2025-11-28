@@ -2,6 +2,12 @@
 .SYNOPSIS
     Crea issues en GitHub en lote basándose en una lista definida.
     Este script es modificado automáticamente por el Agente de Cursor antes de su ejecución.
+    
+.NOTES
+    Para tildes y acentos:
+    - Usa @"..."@ para bodies (Here-Strings)
+    - Escribe tildes directamente dentro del Here-String
+    - Consulta .github/docs/windows_utf8_setup.md para referencia
 #>
 
 # 1. CARGA LA CONFIGURACIÓN UTF-8 (Para que veas bien los logs)
@@ -14,19 +20,22 @@ if (Test-Path "$PSScriptRoot/Enable-Utf8.ps1") {
 # --- ZONA EDITABLE POR EL AGENTE ---
 # El agente rellenará este array basándose en el Roadmap.
 # IMPORTANTE AGENTE: 
-# 1. Usa codificación Hex para caracteres especiales. Ej: "Configuraci$([char]0x00F3)n"
-# 2. Consulta .github/docs/labels_convention.md para asignar labels correctamente.
+# 1. Para títulos: puedes usar tildes directamente (gh cli las maneja bien).
+# 2. Para body: OBLIGATORIO usar @"..."@ (Here-String) - aquí escribes tildes naturalmente.
+# 3. Consulta .github/docs/labels_convention.md para asignar labels correctamente.
 #    Formato: "tipo,tecnologia,fase-X" (ej: "task,backend,fase-2")
 $issues = @(
     @{ 
         Title = "Ejemplo: Tarea Inicial"; 
-        Body = "Esta es una tarea de prueba. Borrala."; 
+        Body = @"
+Esta es una tarea de prueba. Bórrala.
+"@; 
         Labels = "documentation,setup" 
     }
 )
 # -----------------------------------
 
-Write-Host "`n[Iniciando creaci$([char]0x00F3)n de lote de issues...]" -ForegroundColor Cyan
+Write-Host "`n[Iniciando creación de lote de issues...]" -ForegroundColor Cyan
 
 # Verificación de seguridad básica
 if ($issues.Count -eq 0) {
