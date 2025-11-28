@@ -16,9 +16,17 @@ Orquestación completa del pipeline de IA: vectorización → RAG retrieval → 
 ## Active Problems / Blockers
 - **None currently.** The foundation is stable.
 
+## Completed in Issue #33
+1. **BDD Tests:** 12 scenarios en `chat_endpoint.feature` con step definitions.
+2. **Text-to-SQL Service:** Implementado con OpenRouter, validación de SQL safety, reintentos.
+3. **Chat Endpoint:** Orquestación completa (RAG → SQL Gen → Execution).
+4. **Error Handling:** Status 200 siempre, errores en campo error. Timeout/LLM/BD sin crashes.
+5. **Response Format:** {sql, data, visualization, error?} garantizado < 5s.
+6. **Logging:** Logs de RAG retrieval, SQL generation, execution en stdout.
+7. **Documentation:** Setup guide con troubleshooting y arquitectura.
+
 ## Next Steps (Immediate)
-1. **Write BDD Tests:** Scenarios para chat endpoint (query exitosa, errores, visualización).
-2. **Implement Chat Endpoint:** Orquestar VectorizationService → RAG → SQL Generation → Execution.
-3. **Error Handling:** Todos los errores retornan status 200 con campo error en JSON.
-4. **Response Format:** {sql, data, visualization, error?} con latencia < 5s.
-5. **Logging:** stdout logs de RAG retrieval para debugging.
+1. **Issue #34 (Testing):** Ampliar BDD tests con casos de edge cases e integracion.
+2. **Frontend Integration:** Implementar chat UI en Next.js que consuma /api/chat.
+3. **Schema Embeddings:** Generar embeddings iniciales de metadatos para RAG.
+4. **Performance Tuning:** Caché de queries frecuentes, optimización de prompts.
