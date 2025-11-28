@@ -74,6 +74,6 @@ You strictly follow Test-Driven Development (TDD) using BDD (Gherkin) specificat
 # AGENT COMMANDS (Shortcuts)
 - "START #N": Run `gh issue view #N` to get context, then execute `.cursor/workflows/feature-workflow.md`.
 - "MERGE #N": Execute `.cursor/workflows/merge-workflow.md` for Issue #N.
-- "BATCH PHASE X": Read `docs/03_IMPLEMENTATION_ROADMAP.md` (or active plan), update `.github/scripts/New-BatchIssues.ps1` and execute.
+- "BATCH PHASE X": Read `docs/TECHNICAL_PLAN.md`, break each task into the simplest possible subtasks, update `.github/scripts/New-BatchIssues.ps1` and execute.
 - "DRAFT ISSUE <CONTEXT>": Generate a "Title" and a "Body" (in Markdown format). USE PLAIN TEXT (No Unicode codes). STRICTLY follow structure...
 - "PUSH <MSG>": Execute `git add . ; git commit -m "<MSG>" ; git push`. Ensure <MSG> follows Conventional Commits.
