@@ -1,5 +1,6 @@
 from sqlalchemy import Column, DateTime, Text
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.types import JSON
 from datetime import datetime
 import uuid
 from app.database import Base
@@ -18,9 +19,7 @@ class SchemaEmbedding(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     content = Column(Text, nullable=False)
-    # embedding column será manejado por pgvector
-    # En SQLAlchemy, este será representado como un tipo Vector personalizado
-    # Por ahora, lo dejamos como referencia en comentarios
+    embedding = Column(JSON, nullable=True)  # Almacenar como JSON en SQLite para tests, pgvector en PostgreSQL
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 

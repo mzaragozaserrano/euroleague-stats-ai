@@ -39,16 +39,36 @@ Create a Pull Request with appropriate labels.
 **CRITICAL - Context Matters (LOCAL PowerShell):** 
 1. Use Here-Strings (@"..."@) for title and body - `gh cli` handles UTF-8 internally.
 2. Read the issue labels using `gh issue view <ISSUE_NUMBER> --json labels` to inherit them, or assign labels following `.github/docs/labels_convention.md`.
-
-```powershell
-# Get issue labels to inherit them
+3. **MANDATORY:** Define variables in separate lines - NEVER chain here-strings with `;` in a single line.
+4. **NEVER omit special characters (tildes, ñ, etc.)** - If syntax fails, fix the syntax, don't simplify the text.
+ll
+# ✅ CORRECT: Define variables separately with here-strings
 $issueLabels = (gh issue view <ISSUE_NUMBER> --json labels | ConvertFrom-Json).labels.name -join ","
-# If no labels found, assign based on convention: "task,backend,fase-2" (check docs/roadmap.md for phase)
-# Example with Here-String (supports tildes directly):
-gh pr create --title @"feat: implementación de búsqueda"@ --body @"Closes #<ISSUE_NUMBER>"@ --label "$issueLabels";
-# Note: Here-Strings (@"..."@) work with gh cli - gh handles UTF-8 natively on Windows.
-# Do NOT use subexpressions $([char]0x00XX) here - keep tildes direct.
-```
+
+$prTitle = @"feat: implementación de búsqueda"@
+
+$prBody = @"
+Descripción completa con tildes y caracteres especiales.
+
+## Tareas:
+- Implementar funcionalidad
+- Validar con tests
+- Documentar cambios
+
+Closes #<ISSUE_NUMBER>
+"@
+
+gh pr create --title $prTitle --body $prBody --label "$issueLabels"
+
+# ❌ INCORRECT: Chaining here-strings in one line (breaks syntax)
+gh pr create --title @"..."@ --body @"..."@ --label "..."  # DON'T DO THIS
+
+# ❌ INCORRECT: Omitting special characters as workaround
+gh pr create --title "feat: implementacion" --body "Sin tildes"  # NEVER DO THIS**Key Rules:**
+- **Always use here-strings** (`@"..."@`) for PR titles/bodies with special characters
+- **Define variables separately** - one command per variable assignment
+- **If syntax fails, fix the syntax** - never remove special characters as a workaround
+- **Test the variable** with `Write-Host $prBody` before using it if unsure
 
 ## Step 5: Execution Plan
 1. Propose a mini-plan of 3-4 steps to solve the issue.
