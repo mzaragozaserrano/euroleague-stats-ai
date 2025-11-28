@@ -48,9 +48,35 @@ Swagger UI: http://localhost:8000/docs (solo en development)
 
 ## Testing
 
+### Todos los Tests
 ```bash
 poetry run pytest -v
 ```
+
+### Tests BDD (Phase 2.5)
+```bash
+# Tests de RAG SQL Generation (15 scenarios)
+poetry run pytest tests/step_defs/test_rag_steps.py -v
+
+# Tests BDD del Pipeline de ETL
+poetry run pytest tests/features/ -v
+```
+
+### Unit Tests (Phase 2)
+```bash
+# Tests del servicio Text-to-SQL
+poetry run pytest tests/test_text_to_sql_service.py -v
+
+# Tests del servicio de Vectorización
+poetry run pytest tests/test_vectorization_service.py -v
+```
+
+### Cobertura
+```bash
+poetry run pytest tests/ --cov=app/services --cov-report=term-missing
+```
+
+**Status:** 68+ tests pasados (15 BDD + 53 unit) ✅
 
 ## Linting
 
@@ -59,7 +85,32 @@ poetry run ruff check .
 poetry run black .
 ```
 
-## Vectorización de Esquema (RAG)
+## Servicios de IA (Phase 2)
+
+### 1. Text-to-SQL Service (Phase 2.3)
+
+Convierte consultas en lenguaje natural a SQL válido usando LLM (OpenRouter).
+
+**Características:**
+- Validación de SQL Safety contra inyecciones (DROP/DELETE/UPDATE/INSERT)
+- Few-shot prompting con ejemplos de queries complejas
+- Reintentos automáticos con exponential backoff
+- Retorna JSON estructurado: `{sql, visualization_type, error?}`
+
+**Uso:**
+```python
+from app.services.text_to_sql import TextToSQLService
+
+service = TextToSQLService(api_key="sk-...")
+
+sql, viz_type, error = await service.generate_sql(
+    query="Top 5 jugadores con más puntos",
+    schema_context="Tables: players, player_stats_games, teams",
+    conversation_history=[]  # Para contexto multiturno
+)
+```
+
+### 2. Vectorización de Esquema (RAG) (Phase 2.1 & 2.2)
 
 ### Descripción
 
@@ -125,25 +176,39 @@ poetry run pytest tests/features/schema_embeddings.feature -v
 ```
 backend/
 ├── app/
-│   ├── main.py          # Entry point
-│   ├── config.py        # Configuración
-│   ├── database.py      # SQLAlchemy setup
-│   ├── models/          # Modelos ORM
-│   ├── schemas/         # Pydantic schemas
-│   ├── services/        # Lógica de negocio
-│   │   └── vectorization.py  # RAG Vectorization Service (NUEVO)
-│   └── routers/         # Endpoints API
-├── etl/                 # Scripts ETL
+│   ├── main.py                  # Entry point
+│   ├── config.py                # Configuración
+│   ├── database.py              # SQLAlchemy setup
+│   ├── models/                  # Modelos ORM
+│   ├── schemas/                 # Pydantic schemas
+│   ├── services/                # Lógica de negocio (Phase 2)
+│   │   ├── text_to_sql.py       # Text-to-SQL Service (#32)
+│   │   └── vectorization.py     # RAG Vectorization Service (#30)
+│   └── routers/                 # Endpoints API
+│       ├── health.py            # GET /health
+│       └── chat.py              # POST /api/chat (#33)
+├── etl/                         # Scripts ETL
 ├── scripts/
-│   ├── init_embeddings.py    # Inicializar schema embeddings (NUEVO)
+│   ├── init_embeddings.py       # Inicializar schema embeddings
 │   └── ...
-├── tests/               # Tests BDD
+├── tests/                       # Tests BDD + Unit Tests (Phase 2.5)
 │   ├── features/
-│   │   └── schema_embeddings.feature  # Scenarios (NUEVO)
+│   │   ├── schema_embeddings.feature      # Scenarios
+│   │   ├── rag_sql_generation.feature    # 15 Scenarios SQL Gen (#34)
+│   │   └── ...
 │   ├── step_defs/
-│   │   └── test_schema_embeddings_steps.py  # Step definitions (NUEVO)
+│   │   ├── test_rag_steps.py            # 15 BDD scenarios (#34)
+│   │   └── ...
+│   ├── test_text_to_sql_service.py       # 27 Unit tests (#34)
+│   ├── test_vectorization_service.py     # 11 Unit tests (#34)
 │   └── conftest.py
-└── pyproject.toml       # Poetry config
+└── pyproject.toml               # Poetry config
 ```
+
+**Phase Completion:**
+- ✅ Phase 1: ETL Pipeline (Completed - Enero 2025)
+- ✅ Phase 2: Backend & AI Engine (Completed - Enero 2025)
+  - Vectorization (#30), RAG (#31), Text-to-SQL (#32), Chat Endpoint (#33), Testing (#34)
+- 🚧 Phase 3: Frontend (In Progress)
 
 
