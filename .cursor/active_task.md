@@ -1,55 +1,54 @@
-# ðŸŽ¯ TAREA ACTIVA: ISSUE #16
+# ðŸŽ¯ TAREA ACTIVA: ISSUE #17
 
 ## TÃ­tulo
-[1.2.2] ETL Equipos
+[1.2.3] BDD Feature - Jugadores
 
 ## DescripciÃ³n y Requisitos
 ## Órden de Ejecución
 
-**Tarea:** 1.2.2
-**Dependencias:** #15 (BDD Feature debe estar creado primero - TDD)
-**Bloquea a:** #17 (BDD Jugadores)
+**Tarea:** 1.2.3
+**Dependencias:** #16 (ETL Equipos debe estar completo - los jugadores dependen de equipos)
+**Bloquea a:** #18 (ETL Jugadores)
 
 ---
 
 ## Propósito
 
-Implementar el script ETL para ingestar datos de equipos desde la API de Euroleague a la base de datos.
+Crear el archivo de feature Gherkin para la ingesta de jugadores, siguiendo el flujo TDD/BDD.
 
 ## Contexto y Referencias
 
 * **Fase del Proyecto:** Fase 1.2 - Datos Maestros
-* **Documentación Base:** TECHNICAL_PLAN.md
+* **Documentación Base:** SPECIFICATIONS_GHERKIN.md
 
 ## Especificaciones de Implementación
 
 * **Lógica:**
-  - Usar EuroleagueClient para obtener datos de equipos
-  - Transformar datos de la API al formato de los modelos SQLAlchemy
-  - Persistir datos usando los modelos Team
-  - Implementar lógica de upsert para evitar duplicados
-  - Hacer que los tests BDD pasen (Green phase de TDD)
+  - Crear archivo players.feature en backend/tests/features/
+  - Definir escenarios: Given API returns players, When I run ETL, Then DB has players
+  - Incluir relación con equipos
+  - Crear step definitions en backend/tests/step_defs/test_players_steps.py
 
 * **Dependencias:**
-  - euroleague_client.py
-  - Modelos SQLAlchemy
-  - Conexión a Neon DB
+  - pytest-bdd
+  - pytest-asyncio
+  - Datos de equipos ya ingresados
 
 * **Restricciones:**
-  - Los tests BDD deben pasar al finalizar
-  - Manejar errores de red y base de datos
+  - Seguir sintaxis Gherkin estricta
+  - Los tests deben fallar inicialmente (Red phase de TDD)
 
 ## Archivos Afectados / A Crear
 
-* [ ] backend/etl/ingest_teams.py
+* [ ] backend/tests/features/players.feature
+* [ ] backend/tests/step_defs/test_players_steps.py
 
 ## Criterios de Aceptación (Definition of Done)
 
-- [ ] El script ETL funciona correctamente
-- [ ] Los datos se persisten en la base de datos
-- [ ] Los tests BDD pasan (Green phase)
-- [ ] El código está refactorizado (Refactor phase)
-- [ ] El código pasa el linter
+- [ ] El archivo .feature está creado con escenarios completos
+- [ ] Los step definitions están generados
+- [ ] Los tests ejecutan (y fallan como se espera)
+- [ ] La sintaxis Gherkin es válida
 
 ---
 ## INSTRUCCIONES PARA EL AGENTE
