@@ -3,7 +3,7 @@ Step definitions para pruebas del cliente de Euroleague API.
 """
 
 import pytest
-from pytest_bdd import given, when, then, scenario, fixture
+from pytest_bdd import given, when, then, scenario
 from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 
@@ -59,13 +59,13 @@ def test_client_specific_methods():
 
 
 # Fixtures
-@fixture
+@pytest.fixture
 def client():
     """Fixture que proporciona una instancia del cliente."""
     return EuroleagueClient()
 
 
-@fixture
+@pytest.fixture
 def mock_response():
     """Fixture que proporciona una respuesta HTTP mock."""
     response = MagicMock()
