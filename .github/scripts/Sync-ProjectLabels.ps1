@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Sincroniza y valida todas las etiquetas definidas en project_labels.json con GitHub.
-    Se ejecuta automáticamente antes de "BATCH PHASE X".
+    Se ejecuta automáticamente cuando se crea project_labels.json por primera vez, o manualmente cuando se solicita.
     
 .DESCRIPTION
     Este script:
@@ -39,20 +39,17 @@ if (Test-Path $projectLabelsPath) {
     Write-Host "✗ Fichero NO encontrado: $projectLabelsPath" -ForegroundColor Yellow
     Write-Host "  Creando fichero con configuración por defecto..." -ForegroundColor Yellow
     
-    # Crear estructura por defecto
+    # Crear estructura por defecto basada en labels_convention.md
     $defaultConfig = @{
         version = "1.0"
         generated = (Get-Date -Format "yyyy-MM-dd")
-        description = "Configuración centralizada de todas las etiquetas del proyecto"
-        source_files = @(
-            "docs/roadmap.md",
-            "docs/architecture.md",
-            "docs/project_brief.md",
-            ".github/docs/labels_convention.md"
-        )
+        description = "Configuración centralizada de todas las etiquetas del proyecto. Basado en .github/docs/labels_convention.md"
+        source_of_truth = ".github/docs/labels_convention.md"
         categories = @{
-            task_type = @{
-                description = "Tipo de tarea - Máximo una por issue"
+            "1_task_type" = @{
+                section = "Tipo de Tarea"
+                description = "Define la naturaleza del trabajo. Cada issue/PR debe tener máximo una."
+                max_per_issue = 1
                 labels = @(
                     @{ name = "task"; color = "0366d6"; description = "Tarea de desarrollo estándar" }
                     @{ name = "bug"; color = "d73a49"; description = "Error o defecto a corregir" }
@@ -61,8 +58,10 @@ if (Test-Path $projectLabelsPath) {
                     @{ name = "enhancement"; color = "a2eeef"; description = "Mejora o feature solicitada" }
                 )
             }
-            technology = @{
-                description = "Área tecnológica - Máximo una por issue"
+            "2_technology" = @{
+                section = "Tecnología / Componente"
+                description = "Especifica el área del proyecto. Cada issue/PR debe tener máximo una."
+                max_per_issue = 1
                 labels = @(
                     @{ name = "backend"; color = "f9826c"; description = "Backend, API, servicios" }
                     @{ name = "frontend"; color = "a2eeef"; description = "Frontend, UI, cliente" }
@@ -71,17 +70,10 @@ if (Test-Path $projectLabelsPath) {
                     @{ name = "testing"; color = "c5def5"; description = "Tests, QA, validación" }
                 )
             }
-            phase = @{
-                description = "Fase del roadmap - Una por issue"
-                labels = @(
-                    @{ name = "fase-1"; color = "7057ff"; description = "Fase 1: Data & ETL" }
-                    @{ name = "fase-2"; color = "7057ff"; description = "Fase 2: Backend & AI Engine" }
-                    @{ name = "fase-3"; color = "7057ff"; description = "Fase 3: Frontend & Integration" }
-                    @{ name = "fase-4"; color = "7057ff"; description = "Fase 4: Optimization & Deployment" }
-                )
-            }
-            priority_status = @{
-                description = "Estado y prioridad - Opcional"
+            "3_priority_status" = @{
+                section = "Estado / Prioridad"
+                description = "Clasifica urgencia o estado del trabajo."
+                max_per_issue = $null
                 labels = @(
                     @{ name = "priority-high"; color = "d73a49"; description = "Alta prioridad" }
                     @{ name = "priority-medium"; color = "ffc274"; description = "Prioridad media" }
@@ -91,8 +83,10 @@ if (Test-Path $projectLabelsPath) {
                     @{ name = "review"; color = "0075ca"; description = "En revisión" }
                 )
             }
-            github_standard = @{
-                description = "Etiquetas estándar de GitHub"
+            "4_github_standard" = @{
+                section = "Otras Etiquetas Estándar de GitHub"
+                description = "Etiquetas convencionales que GitHub sugiere."
+                max_per_issue = $null
                 labels = @(
                     @{ name = "good first issue"; color = "7057ff"; description = "Buena para nuevos contributores" }
                     @{ name = "help wanted"; color = "008672"; description = "Se busca ayuda" }
@@ -101,14 +95,36 @@ if (Test-Path $projectLabelsPath) {
                     @{ name = "invalid"; color = "e4e669"; description = "No válido o incompleto" }
                 )
             }
-        }
-        rules = @{
-            per_issue_requirements = @{
-                must_have = @("one_task_type", "one_technology", "one_phase")
-                optional = @("priority", "status")
+            "5_project_phases" = @{
+                section = "Fases del Proyecto"
+                description = "Categorizar issues por fase del roadmap (generado automáticamente desde docs/roadmap.md)"
+                max_per_issue = 1
+                labels = @(
+                    @{ name = "fase-1"; color = "7057ff"; description = "Fase 1: Data & ETL" }
+                    @{ name = "fase-2"; color = "7057ff"; description = "Fase 2: Backend & AI Engine" }
+                    @{ name = "fase-3"; color = "7057ff"; description = "Fase 3: Frontend & Integration" }
+                    @{ name = "fase-4"; color = "7057ff"; description = "Fase 4: Optimization & Deployment" }
+                )
             }
+        }
+        pautas = @{
+            para_issues = @(
+                "Cada issue debe tener al menos una etiqueta de 'Tipo de Tarea'",
+                "Cada issue debe tener opcionalmente una etiqueta de 'Tecnología'",
+                "Permitir máximo una por categoría"
+            )
+            para_pull_requests = @(
+                "Si el PR cierra un issue, heredar sus labels",
+                "Si no hay issue, asignar labels siguiendo la misma estructura",
+                "Agregar estado: usar 'in-progress', 'review' según sea necesario"
+            )
             naming_convention = "kebab-case (minúsculas con guiones)"
             color_consistency = "Los mismos tipos siempre usan el mismo color"
+        }
+        validacion = @{
+            automatica = $true
+            script = ".github/scripts/Sync-ProjectLabels.ps1"
+            frecuencia = "Ejecutar cuando se crea project_labels.json por primera vez o cuando el usuario lo solicite"
         }
     }
     

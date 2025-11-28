@@ -3,23 +3,23 @@
 **Trigger:** User commands "BATCH PHASE <PHASE_NUMBER>" (e.g., "BATCH PHASE 2")
 **Pre-requisites:** `gh` CLI installed. `docs/roadmap.md` exists.
 
-## Step 1: Sincronizar Etiquetas del Proyecto
+## Step 1: Validar/Crear project_labels.json
 
-**IMPORTANTE:** Este paso SIEMPRE debe ejecutarse primero.
+**IMPORTANTE:** Este paso verifica que existe la configuración de etiquetas.
 
 1. Verificar que existe `.github/docs/project_labels.json`
-   - Si no existe, el script lo creará automáticamente
-2. Ejecutar el script de sincronización:
-   ```powershell
-   .\.github\scripts\Sync-ProjectLabels.ps1
-   ```
-3. Este script:
-   - Lee la configuración de `project_labels.json`
-   - Valida que todas las etiquetas estén basadas en `.github/docs/labels_convention.md`
-   - Crea/actualiza las etiquetas en GitHub
-   - Reporta cualquier error
+   - **Si NO existe:** 
+     - **EJECUTAR:** `.\.github\scripts\Sync-ProjectLabels.ps1`
+     - El script creará el archivo automáticamente con la configuración por defecto basada en `labels_convention.md`
+     - **Y automáticamente ejecutará la sincronización** para crear las etiquetas en GitHub
+   - **Si YA existe:** 
+     - **NO ejecutar** el script de sincronización
+     - Solo usar el archivo para consultar las etiquetas disponibles en los siguientes pasos
 
-**Si hay errores:** Revisar que `project_labels.json` esté bien formado y que `gh cli` esté autenticado.
+**Nota:** El usuario puede ejecutar manualmente la sincronización cuando lo desee:
+```powershell
+.\.github\scripts\Sync-ProjectLabels.ps1
+```
 
 ## Step 2: Roadmap Analysis
 1. Read `@docs/roadmap.md`.
