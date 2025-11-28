@@ -37,23 +37,9 @@ jobs:
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
         run: poetry install --no-interaction --no-ansi
       
-      - name: Run Teams ETL
+      - name: Run All ETLs
         working-directory: ./backend
-        run: poetry run python etl/ingest_teams.py
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        continue-on-error: true
-      
-      - name: Run Players ETL
-        working-directory: ./backend
-        run: poetry run python etl/ingest_players.py
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        continue-on-error: true
-      
-      - name: Run Games ETL
-        working-directory: ./backend
-        run: poetry run python etl/ingest_games.py
+        run: poetry run python scripts/run_all_etl.py
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         continue-on-error: true
