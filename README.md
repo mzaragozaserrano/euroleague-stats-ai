@@ -16,8 +16,13 @@ Esta aplicación permite a los aficionados, analistas y jugadores de fantasy hac
 
 * ✅ **Fase 0:** Scaffolding & Setup (Completado)
 * ✅ **Fase 1:** Data Pipeline MVP (Completado - Enero 2025)
-* 🚧 **Fase 2:** Backend & AI Engine (En Progreso)
-* ⏳ **Fase 3:** Frontend MVP (Pendiente)
+* ✅ **Fase 2:** Backend & AI Engine (Completado - Enero 2025)
+  - Vectorización de metadatos (#30)
+  - Servicio RAG (#31)
+  - Text-to-SQL con OpenRouter (#32)
+  - Chat Endpoint (#33)
+  - BDD Testing con pytest (15 scenarios, 53+ unit tests) (#34)
+* 🚧 **Fase 3:** Frontend MVP (En Progreso)
 
 ---
 
@@ -25,7 +30,10 @@ Esta aplicación permite a los aficionados, analistas y jugadores de fantasy hac
 
 - 🔍 **Consulta en Lenguaje Natural**: Haz preguntas como "Comparativa de puntos por partido entre Micic y Larkin".
 - 📊 **Visualización Automática**: El sistema decide la mejor forma de mostrar los datos (tablas, gráficos, shot charts).
-- 🎯 **Motor Text-to-SQL**: Utiliza IA para convertir preguntas en consultas SQL precisas.
+- 🎯 **Motor Text-to-SQL**: Utiliza IA para convertir preguntas en consultas SQL precisas y seguras.
+- 🛡️ **SQL Safety First**: Validación robusta contra inyecciones SQL y operaciones peligrosas (DROP/DELETE/UPDATE).
+- 🧠 **RAG + Schema Embeddings**: Recuperación inteligente de metadatos para generar SQL sin alucinaciones.
+- ✅ **BDD Tested**: 15+ scenarios de prueba con cobertura de edge cases y rendimiento.
 - 🆓 **Modelo Freemium**: Acceso gratuito a estadísticas básicas (MVP), arquitectura lista para plan Pro.
 
 ---
@@ -91,6 +99,39 @@ Este proyecto sigue una arquitectura dirigida por documentación. Para detalles 
    ```bash
    npm run dev
    ```
+
+---
+
+## 🧪 Testing
+
+### Ejecutar Tests BDD
+
+```bash
+cd backend
+poetry run pytest tests/step_defs/test_rag_steps.py -v
+```
+
+**Cobertura:**
+- 15 scenarios BDD para SQL generation
+- Validación de SQL safety (inyecciones, operaciones peligrosas)
+- RAG retrieval con/sin historial
+- Manejo de NULL, caracteres especiales, performance
+
+### Ejecutar Unit Tests
+
+```bash
+poetry run pytest tests/test_text_to_sql_service.py tests/test_vectorization_service.py -v
+```
+
+**Cobertura:**
+- 27 tests de TextToSQLService (validación SQL, prompts, seguridad)
+- 11 tests de VectorizationService (embeddings, métodos, constantes)
+
+### Reporte de Cobertura
+
+```bash
+poetry run pytest tests/ --cov=app/services --cov-report=term-missing
+```
 
 ---
 
