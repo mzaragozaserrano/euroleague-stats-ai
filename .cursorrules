@@ -19,6 +19,10 @@ You strictly follow Test-Driven Development (TDD) using BDD (Gherkin) specificat
 - `/frontend`: Next.js 14 application (App Router).
 - `/data`: Local data storage (ignored by git).
 
+# CRITICAL RULES (STRICT)
+1. **OS/Environment:** Windows (PowerShell).
+   - **Syntax:** Use `;` to chain commands. NEVER use `&&`.
+
 # TECH STACK & CRITICAL CONSTRAINTS
 
 ## Database (Neon + SQLAlchemy)
