@@ -1,9 +1,9 @@
 # Active Context
 
 ## Current Focus
-**Issue #31: 2.2 RAG Service - Implementar retrieve_relevant_schema()**
+**Issue #32: 2.3 Text-to-SQL Service - Ingeniería de prompts e integración con LLM**
 
-Implementando el servicio RAG que recupera metadatos relevantes del esquema basándose en la consulta del usuario usando búsqueda de similaridad vectorial con pgvector.
+Implementando el servicio que convierte consultas en SQL usando LLM (OpenRouter). Incluye diseño de prompts con System + Few-Shot examples, validación de SQL generado y manejo de errores estructurado.
 
 ## Recent Decisions & Achievements
 - **ETL Completed:** We have a robust, tested ETL pipeline running daily on GitHub Actions.
@@ -16,7 +16,8 @@ Implementando el servicio RAG que recupera metadatos relevantes del esquema bas�
 - **None currently.** The foundation is stable.
 
 ## Next Steps (Immediate)
-1. **Implement RAG Service:** Create `backend/app/services/rag.py` with `retrieve_relevant_schema(query: str)` function.
-2. **Integrate pgvector:** Use vector similarity search to find K most relevant schema embeddings (K=3-5).
-3. **Return Schema Metadata:** Return table names, columns, and SQL examples for the LLM prompt.
-4. **Test & Document:** Ensure latency < 500ms and document in architecture.md.
+1. **Implement Text-to-SQL Service:** Create `backend/app/services/text_to_sql.py` with `generate_sql(query: str, schema_context: str)` function.
+2. **Design Prompt Engineering:** System prompt + Few-Shot SQL examples for common query patterns.
+3. **Integrate OpenRouter API:** Call LLM with low-cost model, handle rate limits and errors.
+4. **SQL Validation:** Reject DROP/DELETE statements and malicious queries.
+5. **Structured Response:** Return JSON with `{sql, data, visualization, latency}` format.
