@@ -8,9 +8,6 @@ on:
 jobs:
   etl:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./backend
     
     steps:
       - name: Checkout code
@@ -33,26 +30,30 @@ jobs:
         uses: actions/cache@v4
         with:
           path: backend/.venv
-          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+          key: venv-${{ runner.os }}-3.11-${{ hashFiles('backend/poetry.lock') }}
       
       - name: Install dependencies
+        working-directory: ./backend
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
         run: poetry install --no-interaction --no-ansi
       
       - name: Run Teams ETL
-        run: poetry run python -m etl.ingest_teams
+        working-directory: ./backend
+        run: poetry run python etl/ingest_teams.py
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         continue-on-error: true
       
       - name: Run Players ETL
-        run: poetry run python -m etl.ingest_players
+        working-directory: ./backend
+        run: poetry run python etl/ingest_players.py
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         continue-on-error: true
       
       - name: Run Games ETL
-        run: poetry run python -m etl.ingest_games
+        working-directory: ./backend
+        run: poetry run python etl/ingest_games.py
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         continue-on-error: true
@@ -62,4 +63,3 @@ jobs:
         run: |
           echo "ETL execution completed"
           echo "Check logs above for details"
-
