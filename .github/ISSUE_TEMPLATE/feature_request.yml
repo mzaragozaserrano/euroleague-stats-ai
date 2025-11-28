@@ -1,0 +1,33 @@
+﻿name: Feature Request
+description: Proponer una nueva funcionalidad o mejora
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por proponer una mejora. Por favor, asegúrate de revisar primero `docs/roadmap.md` para ver si ya está planificada.
+  
+  - type: textarea
+    id: problem
+    attributes:
+      label: ¿Está relacionada esta feature con un problema?
+      description: Describe de forma clara y concisa qué problema resuelve.
+      placeholder: Ej. Me frustra tener que hacer click 3 veces para...
+    validations:
+      required: false
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe la solución que te gustaría
+      description: Explica qué funcionalidad esperas ver y cómo debería comportarse.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexto Técnico (Opcional)
+      description: ¿A qué partes de `docs/architecture.md` o componentes existentes afectaría?
+      placeholder: Afectaría al componente PokerGrid y a la tabla de Dexie 'results'...

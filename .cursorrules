@@ -1,83 +1,75 @@
-# .cursorrules
-
-# PROJECT CONTEXT & ROLE
+# Role
 Act as a Senior Full Stack AI Engineer and Technical Lead.
-You are an expert in Python (FastAPI, Data Engineering), TypeScript (Next.js 14, React), and PostgreSQL (Neon/Serverless).
-You strictly follow Test-Driven Development (TDD) using BDD (Gherkin) specifications.
+You are expert in Python Data Engineering and Next.js, strictly following TDD with BDD (Gherkin).
 
-# KNOWLEDGE BASE
-- Always refer to `docs/SPECIFICATIONS.md` for user behavior and acceptance criteria.
-- Always refer to `docs/TECHNICAL_PLAN.md` for architectural constraints.
-- **CRITICAL:** Always refer to `.github/docs/WINDOWS_UTF8_SETUP.md` for UTF-8 encoding issues in Windows (affects Git commits, GitHub issues, file operations).
-- **IGNORE:** Do not read or modify `MY_ROUTE.md` under any circumstances.
+# Tech Stack
+- **Backend:** Python (FastAPI), Poetry, SQLAlchemy (Async + Declarative).
+- **Frontend:** TypeScript (Next.js 14 App Router), React, Tailwind CSS + shadcn/ui.
+- **Database:** PostgreSQL (Neon Serverless), driver `asyncpg`, extension `pgvector`.
+- **AI/LLM:** OpenAI API (`text-embedding-3-small` for embeddings) & OpenRouter.
+- **Testing:** pytest, pytest-bdd, pytest-asyncio.
+- **Charts:** Recharts.
 
-# PROJECT STRUCTURE (Monorepo)
-- `/backend`: Python logic managed with Poetry.
-  - `/backend/app`: Source code (FastAPI). Main entry point: `app/main.py`.
-  - `/backend/tests`: Gherkin features (`tests/features/`) and pytest step definitions.
-  - `/backend/etl`: ETL scripts for data ingestion from Euroleague API.
-- `/frontend`: Next.js 14 application (App Router).
-- `/data`: Local data storage (ignored by git).
-
-# CRITICAL RULES (STRICT)
-1. **OS/Environment:** Windows (PowerShell).
-   - **Syntax:** Use `;` to chain commands. NEVER use `&&`.
-
-# TECH STACK & CRITICAL CONSTRAINTS
-
-## Database (Neon + SQLAlchemy)
-- **CRITICAL:** Always use `poolclass=NullPool` in SQLAlchemy engine config (Neon Serverless requirement).
-- Driver: `asyncpg` (required for async SQLAlchemy operations).
-- Extension: `pgvector` for vector similarity search (RAG schema retrieval).
-- ORM: Declarative mapping.
-
-## Backend (FastAPI + Python)
-- **Dependency Management:** Use `poetry`.
-- **Structure:** Use `app/` pattern. Main entry point: `app/main.py`.
-- **Endpoints Definition:**
-  - `GET /health`: Simple 200 OK status check.
-  - `POST /api/chat`: Accepts `{ query: str, history: list }`. Returns `{ sql: str, data: json, visualization: str }`.
-- **Error Handling:** Never crash. Return structured JSON errors (e.g., "I couldn't write the SQL query").
-
-## AI & RAG Strategy (Schema Retrieval)
-- **Embedding Model:** Use OpenAI `text-embedding-3-small` (via API) to save RAM on Render.
-- **Indexing Strategy:**
-  - DO NOT vectorise row data (player stats).
-  - **DO vectorise Schema Metadata:** Table names, column descriptions, and SQL examples (Few-Shot).
-- **Process:** User Query -> Retrieve relevant Table Schema -> LLM Generates SQL -> Execute SQL.
-- **LLM Response Format:** The LLM must return JSON with keys: `sql` (string), `data` (json), `visualization` (string: 'bar', 'line', or 'table').
-
-## Frontend (Next.js + Tailwind)
-- Framework: Next.js 14 (App Router).
-- Styling: Tailwind CSS + `shadcn/ui`.
-- Charts: `recharts`.
-- **Mobile First:** Prioritize vertical layouts.
-- **Persistence:** Use `localStorage` to save chat history (ensure it survives mobile tab discarding).
-- **UX Constraints:**
-  - Handle Render "Cold Start" (>3s latency) with specific status messages (e.g., "Despertando al Agente...").
-  - Handle OpenRouter Rate Limits (50 req/day) with a clear UI warning.
-
-## Testing (BDD)
-- Framework: `pytest` + `pytest-bdd` + `pytest-asyncio`.
-- **Workflow:**
-  1. Create `.feature` file in `backend/tests/features/`.
+# General Rules
+- **Monorepo Structure:** Respect `/backend` (Python logic), `/frontend` (Next.js), and `/data` (ignored local storage).
+- **Testing Protocol (TDD/BDD):**
+  1. Write `.feature` in `backend/tests/features/`.
   2. Generate failing step definitions.
-  3. Implement backend logic to pass.
-- **Note:** Use `visualization` (not `chart_type`) in code and tests to match API response format.
+  3. Implement logic to pass.
+- **Error Handling:** NEVER crash the backend. Return structured JSON errors explaining the failure (e.g., "I couldn't write the SQL query").
+- **Local-First (Dev):** Use local environment variables, but respect Neon Serverless constraints.
+- **Protocol:** Fail fast. Don't loop on errors. Be concise.
+- **Output Style:** CSV (Concise, Specific, Valid). Only output modified code blocks.
 
-# CODING BEHAVIOR
-- **No Hallucinations:** Validate libraries before using them.
-- **No Lazy Code:** Write full implementations.
-- **Diffs:** Show concise diffs for large files.
-- **Secrets:** Use `os.getenv` for `OPENAI_API_KEY`, `DATABASE_URL`, etc. Never hardcode.
+# OS & Environment (STRICT)
+- **OS:** Windows (PowerShell).
+- **Syntax:** Use `;` to chain commands. NEVER use `&&`.
+- **Encoding & Strings (CRITICAL):** - Windows Console corrupts special characters (ñ, á, é, etc.).
+  - **MANDATORY:** Before writing any PowerShell string containing non-ASCII characters, READ `.github/docs/WINDOWS_UTF8_SETUP.md`.
+  - **Action:** REPLACE characters with subexpressions.
+    - Example: write "Configuraci$([char]0x00F3)n" instead of "Configuración".
+  - Applies to: Commit messages, PR titles/bodies, and Script variables.
+- **Git:** Follow Conventional Commits.
+
+# Documentation & SDD
+- **Context:** Always check `docs/active_context.md` before starting a task.
+- **Logic:** Primary source of truth for Logic/Math/Schema is `docs/architecture.md`.
+- **UI:** Primary source of truth for Visuals/Business is `docs/project_brief.md`.
+- **Roadmap:** Check `docs/roadmap.md` for task tracking.
+
+# Project Specifics & Constraints
+
+## Database (Neon Serverless)
+- **CRITICAL:** Always use `poolclass=NullPool` in SQLAlchemy engine config (Required for Neon).
+- **Driver:** Must use `asyncpg`.
+
+## AI Strategy (RAG)
+- **Indexing:** DO NOT vectorise row data (player stats). ONLY vectorise Schema Metadata (Table names, columns, Few-Shot SQL examples).
+- **Flow:** Query -> Retrieve Schema -> LLM Generates SQL -> Execute SQL.
+- **Response Format:** JSON with keys: `sql` (str), `data` (json), `visualization` (str: 'bar', 'line', 'table').
+
+## Backend API
+- **Entry Point:** `app/main.py`.
+- **Endpoints:**
+  - `GET /health`: 200 OK.
+  - `POST /api/chat`: Input `{ query, history }` -> Output `{ sql, data, visualization }`.
+
+## Frontend UX
+- **Mobile First:** Prioritize vertical layouts.
+- **Persistence:** Use `localStorage` for chat history (must survive tab discarding).
+- **Latencies:**
+  - Handle Render "Cold Start" (>3s) with status messages (e.g., "Despertando al Agente...").
+  - Handle OpenRouter Rate Limits (50 req/day) with UI warnings.
 
 # Workflow References
-- To start a task: Follow `.cursor/workflows/feature-workflow.md`
+- To start a feature: Follow `.cursor/workflows/feature-workflow.md`
+- To fix a bug: Follow `.cursor/workflows/bug-workflow.md`
 - To close a task: Follow `.cursor/workflows/merge-workflow.md`
 
 # AGENT COMMANDS (Shortcuts)
 - "START #N": Run `gh issue view #N` to get context, then execute `.cursor/workflows/feature-workflow.md`.
+- "FIX #N": Run `gh issue view #N`, then execute `.cursor/workflows/bug-workflow.md` (Focus on reproduction & fix).
 - "MERGE #N": Execute `.cursor/workflows/merge-workflow.md` for Issue #N.
-- "BATCH PHASE X": Read `docs/TECHNICAL_PLAN.md`, break each task into the simplest possible subtasks, update `.github/scripts/New-BatchIssues.ps1` and execute.
-- "DRAFT ISSUE <CONTEXT>": Generate a "Title" and a "Body" (in Markdown format). USE PLAIN TEXT (No Unicode codes). STRICTLY follow structure...
-- "PUSH <MSG>": Execute `git add . ; git commit -m "<MSG>" ; git push`. Ensure <MSG> follows Conventional Commits.
+- "BATCH PHASE X": Read `docs/roadmap.md`, break task into subtasks, update `.github/scripts/New-BatchIssues.ps1` and execute.
+- "REPORT BUG <TITLE>": Execute `.cursor/workflows/create-bug-workflow.md`. ASK for details first, then sanitize & create issue.
+- "DRAFT ISSUE <CONTEXT>": Generate a "Title" and a "Body" (in Markdown format). USE PLAIN TEXT (No Unicode codes). STRICTLY follow structure.

@@ -33,4 +33,4 @@ Thumbs.db
 *.key
 
 # Ignorar archivo específico
-docs/MY_ROUTE.md
+docs/archive/

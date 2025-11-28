@@ -1,41 +1,46 @@
-# Workflow de Implementación
+# Feature Start Workflow
 
-## 1. Anclaje de Contexto (CRÍTICO)
-- [ ] **Descargar Tarea:** Ejecuta el script para fijar el objetivo (Sustituye `<ID>` por el número):
-    ```powershell
-    .github/scripts/Get-TaskContext.ps1 -IssueNumber <ID>
-    ```
-- [ ] **LEER OBJETIVO:** Abre y lee el archivo generado `.cursor/active_task.md`. **Esa es tu instrucción maestra.**
+**Trigger:** User commands "START #<ISSUE_NUMBER>"
+**Pre-requisites:** `gh` CLI installed and authenticated.
 
-## 2. Preparación
-- [ ] **UTF-8:** Ejecutar `.github/scripts/Enable-Utf8.ps1`.
-- [ ] **Sincronización:**
-    ```bash
-    git checkout main
-    git pull
-    git checkout -b feat/issue-<ID>
-    ```
-- [ ] **Estado:**
-    ```bash
-    gh issue edit <ID> --add-label "in progress"
-    ```
+## Step 1: Context Gathering
+1. Read the issue details using `gh issue view <ISSUE_NUMBER>`.
+2. Analyze `@docs/architecture.md` and `@docs/project_brief.md` to understand the impact.
 
-## 3. Desarrollo (Basado en `.cursor/active_task.md`)
-- [ ] Implementar cambios siguiendo las instrucciones del archivo descargado.
-- [ ] **NO Backend:** Usar Dexie.js para datos.
-- [ ] Consultar referencias en `@05_AI_SUMMARY.md` si es necesario.
+## Step 2: Branch Creation (PowerShell)
+Execute the following commands strictly in the terminal.
+*Note: Replace `<ISSUE_NUMBER>` with the actual ID and `<SLUG>` with a short, kebab-case description.*
 
-## 4. Calidad (Stop on Error)
-- [ ] `npm run lint`
-- [ ] `npx tsc --noEmit`
-- [ ] `npm test`
+```powershell
+git checkout main;
+git pull origin main;
+$issueId = "<ISSUE_NUMBER>";
+$desc = "<SLUG>"; 
+# Example: "feat/issue-42-fix-login"
+git checkout -b "feat/issue-$issueId-$desc";
+```
 
-## 5. Entrega
-- [ ] **Commit:**
-    ```bash
-    git add .
-    git commit -m "feat(issue-<ID>): implement task details"
-    ```
-    *(Ver `WINDOWS_UTF8_SETUP.md` para tildes)*.
-- [ ] **Push:** `git push -u origin HEAD`
-- [ ] **PR:** Edita y ejecuta `.github/scripts/New-PullRequest.ps1`
+## Step 3: Documentation Update & Initial Commit
+1. Update `@docs/active_context.md`:
+   - Set "Current Focus" to the Issue Title.
+   - Add the Issue ID to "Active Problems" or "Recent Decisions".
+2. **Execute immediately** (Apply UTF-8 rules from `.github/docs/windows_utf8_setup.md` for the message):
+
+```powershell
+git add docs/active_context.md;
+git commit -m "chore(docs): start work on issue #<ISSUE_NUMBER>";
+git push -u origin HEAD;
+```
+
+## Step 4: Create Linked Pull Request
+Create a Draft PR.
+**CRITICAL:** Sanitize the title and body using `.github/docs/windows_utf8_setup.md`.
+
+```powershell
+# Example Title: "feat: validaci$([char]0x00F3)n de l$([char]0x00F3)gica"
+gh pr create --draft --title "<TYPE>: <SANITIZED_TITLE>" --body "Work in progress. Closes #<ISSUE_NUMBER>";
+```
+
+## Step 5: Execution Plan
+1. Propose a mini-plan of 3-4 steps to solve the issue.
+2. Ask the user for confirmation before writing the actual feature code.

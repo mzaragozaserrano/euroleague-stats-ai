@@ -1,0 +1,57 @@
+name: Reporte de Error
+description: Reportar un error para ayudarnos a mejorar
+title: "fix: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por reportar un error. Por favor, revisa `docs/active_context.md` primero.
+  - type: textarea
+    id: description
+    attributes:
+      label: Descripción
+      description: Una descripción clara y concisa del error.
+      placeholder: El temporizador no se detiene cuando hago clic en "Verificar"...
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Pasos para Reproducir
+      description: ¿Cómo podemos reproducir este error?
+      placeholder: |
+        1. Ve a 'Entrenador'
+        2. Selecciona 'AKs'
+        3. Haz clic en 'Verificar'
+        4. Ve el error...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportamiento Esperado
+      description: ¿Qué debería haber sucedido?
+      placeholder: El temporizador debería haberse detenido...
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Comportamiento Actual
+      description: ¿Qué sucede en realidad?
+      placeholder: El temporizador sigue corriendo...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Información del Entorno
+      description: Detalles sobre tu sistema (navegador, SO, etc.)
+      placeholder: |
+        - Navegador: Chrome 120
+        - SO: Windows 10
+        - Versión de la app: v1.0.0
+    validations:
+      required: false
+

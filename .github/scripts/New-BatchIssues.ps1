@@ -1,89 +1,55 @@
-# 1. Cargar configuración UTF-8
-$utf8NoBom = . "$PSScriptRoot\Enable-Utf8.ps1"
+<#
+.SYNOPSIS
+    Crea issues en GitHub en lote basándose en una lista definida.
+    Este script es modificado automáticamente por el Agente de Cursor antes de su ejecución.
+#>
 
-# ------------------------------------------------------------------
-# 2. FUNCIÓN PLANTILLA (Actualizada a Estándar Profesional)
-# ------------------------------------------------------------------
-function Get-IssueBody {
-    param(
-        [string]$TaskNum,
-        [string]$Purpose,
-        [string]$Specs,
-        [string]$ContextDocs = "[03_IMPLEMENTATION_ROADMAP.md](../../docs/03_IMPLEMENTATION_ROADMAP.md)"
-    )
-
-    # Unicode: Ó=0xD3, ó=0xF3, é=0xE9, í=0xED
-    return @"
-## 📋 Metadata
-
-**ID Tarea:** $TaskNum
-**Dependencias:** Por determinar
-**Bloquea a:** Por determinar
-
----
-
-## 🎯 Objetivo
-$Purpose
-
-## 🔗 Contexto
-* **Fase:** $TaskNum (Inferida)
-* **Documentaci$([char]0x00F3)n:** $ContextDocs
-
-## 🛠️ Especificaciones T$([char]0x00E9)cnicas
-$Specs
-
-## ✅ Definition of Done (DoD)
-- [ ] C$([char]0x00F3)digo implementado y funcional
-- [ ] Tests unitarios/integraci$([char]0x00F3)n pasando
-- [ ] Linter sin errores
-- [ ] Relaciones de datos verificadas (Dexie)
-"@
+# 1. CARGA LA CONFIGURACIÓN UTF-8 (Para que veas bien los logs)
+# $PSScriptRoot es la carpeta donde está este script.
+# Si el fichero Enable-Utf8.ps1 no existe, ignoramos el error para no romper nada.
+if (Test-Path "$PSScriptRoot/Enable-Utf8.ps1") {
+    . "$PSScriptRoot/Enable-Utf8.ps1"
 }
 
-# ------------------------------------------------------------------
-# 3. DEFINICIÓN DE TAREAS
-# ------------------------------------------------------------------
-$tasks = @(
+# --- ZONA EDITABLE POR EL AGENTE ---
+# El agente rellenará este array basándose en el Roadmap.
+# IMPORTANTE AGENTE: Usa codificación Hex para caracteres especiales. 
+# Ej: "Configuraci$([char]0x00F3)n"
+$issues = @(
     @{ 
-        TaskNum = "1.1"
-        Title   = "feat(setup): inicialización del proyecto"
-        Purpose = "Configurar el repositorio base con las herramientas de calidad."
-        Specs   = "- Instalar Vite y React`n- Configurar ESLint y Prettier"
-    },
-    @{ 
-        TaskNum = "1.2"
-        Title   = "feat(db): configuración de Dexie"
-        Purpose = "Establecer la capa de persistencia local."
-        Specs   = "- Definir esquema de base de datos`n- Crear servicio de conexión"
+        Title = "Ejemplo: Tarea Inicial"; 
+        Body = "Esta es una tarea de prueba. B$([char]0x00F3)rrala."; 
+        Labels = "documentation, setup" 
     }
 )
-# ------------------------------------------------------------------
+# -----------------------------------
 
-$issueMap = @{}
+Write-Host "`n🚀 Iniciando creación de lote de issues..." -ForegroundColor Cyan
 
-# Paso 4: Ejecución
-foreach ($task in $tasks) {
-    $bodyContent = Get-IssueBody -TaskNum $task.TaskNum -Purpose $task.Purpose -Specs $task.Specs
-    $bodyFinal = $bodyContent + "`n`n> **Nota:** Referencias autom$([char]0x00E1)ticas pendientes."
-    
-    $tempFile = [System.IO.Path]::GetTempFileName()
-    [System.IO.File]::WriteAllText($tempFile, $bodyFinal, $utf8NoBom)
-    
-    try {
-        Write-Host "Creando: $($task.Title)..." -NoNewline
-        $result = gh issue create --title $task.Title --body-file $tempFile
-        
-        if ($result -match 'issues/(\d+)') {
-            $num = $matches[1]
-            $issueMap[$task.TaskNum] = $num
-            Write-Host " -> OK (#$num)" -ForegroundColor Green
-        }
-    }
-    finally {
-        Remove-Item $tempFile -ErrorAction SilentlyContinue
-    }
-    Start-Sleep -Milliseconds 500
+# Verificación de seguridad básica
+if ($issues.Count -eq 0) {
+    Write-Warning "La lista de issues está vacía. No hay nada que crear."
+    exit
 }
 
-Write-Host "`n--- MAPA DE ISSUES ---" -ForegroundColor Yellow
-$issueMap.Keys | Sort-Object | ForEach-Object { "$_ = #$($issueMap[$_])" }
+foreach ($issue in $issues) {
+    # Mostramos en pantalla el título (aquí es donde Enable-Utf8 ayuda a que se vea bien)
+    Write-Host "Creando: $($issue.Title)..." -NoNewline
+    
+    # Ejecutamos el comando de GitHub CLI
+    # Usamos splatting o argumentos directos. Redirigimos stderr a stdout (2>&1) para capturar errores.
+    $result = gh issue create --title $issue.Title --body $issue.Body --label $issue.Labels 2>&1
+    
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host " ✅ OK" -ForegroundColor Green
+    } else {
+        Write-Host " ❌ ERROR" -ForegroundColor Red
+        # Mostramos el error devuelto por gh cli
+        Write-Host $result -ForegroundColor Yellow
+    }
+    
+    # Pequeña pausa de 500ms para respetar la API de GitHub y evitar bloqueos por spam
+    Start-Sleep -Milliseconds 500 
+}
+
+Write-Host "`n✨ Proceso finalizado." -ForegroundColor Cyan
