@@ -1,65 +1,34 @@
----
-name: Tarea Técnica
-
-about: Plantilla para tareas de implementación del Roadmap
-
-title: "[FASE X] Nombre de la Tarea"
-
-labels: backend, task
-
-assignees: ''
-
----
+## Órden de Ejecución
+**Tarea:** X.Y.Z
+**Dependencias:** #ID_REAL (o "Ninguna")
+**Bloquea a:** #ID_REAL (o "Ninguna")
 
 ## Propósito
-
-Describir brevemente el objetivo técnico de esta tarea. ¿Qué funcionalidad habilita en el sistema?
-
-
+Descripción breve del objetivo técnico.
 
 ## Contexto y Referencias
-
-* **Fase del Proyecto:** [Fase 1 / Fase 2...]
-
-* **Documentación Base:** [TECHNICAL_PLAN.md / SPECIFICATIONS.md]
-
-
+* **Fase del Proyecto:** Fase X - Nombre
+* **Documentación Base:** [ARCHIVO.md](../../docs/ruta/archivo.md)
 
 ## Especificaciones de Implementación
+* **Lógica:** Pasos detallados.
+* **Dependencias:** Librerías o datos necesarios.
 
-Detalles técnicos extraídos del Roadmap:
-
-
-
-* **Lógica:** [Describir qué debe hacer el código]
-
-* **Dependencias:** [Librerías o servicios externos necesarios]
-
-* **Restricciones:** [Ej. Usar NullPool, Manejo de errores específico]
-
-
-
-## Archivos Afectados / A Crear
-
-Lista explícita de archivos donde se realizará el trabajo:
-
-* [ ] ruta/al/archivo_nuevo.py
-
-* [ ] ruta/al/archivo_existente.py
-
-
+## Archivos Afectados
+* [ ] src/ruta/archivo.ts
 
 ## Criterios de Aceptación (Definition of Done)
+- [ ] Funcionalidad verificada
+- [ ] Tests pasando
+- [ ] Linter limpio
 
-Para dar la tarea por finalizada:
+## Cierre Automático de Issue
+**IMPORTANTE:** Para que esta issue se cierre automáticamente al hacer merge del PR asociado, incluye en la descripción del PR o en el mensaje del commit final una de las siguientes palabras clave:
 
+- `Closes #<NUMERO_ISSUE>` (recomendado)
+- `Fixes #<NUMERO_ISSUE>`
+- `Resolves #<NUMERO_ISSUE>`
 
+**Ejemplo:** Si esta es la issue #42, el PR debe incluir: `Closes #42`
 
-- [ ] La implementación cumple los requisitos del Plan Técnico.
-
-- [ ] El código pasa las reglas de linter (Ruff/Black/ESLint).
-
-- [ ] Se han incluido pruebas (unitarias o BDD) que verifican el cambio.
-
-- [ ] La funcionalidad ha sido validada en entorno local.
-
+*Nota: GitHub cerrará automáticamente la issue cuando el PR se mergee si contiene alguna de estas palabras clave.*
