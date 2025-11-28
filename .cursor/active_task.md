@@ -1,47 +1,48 @@
-# ðŸŽ¯ TAREA ACTIVA: ISSUE #17
+# ðŸŽ¯ TAREA ACTIVA: ISSUE #19
 
 ## TÃ­tulo
-[1.2.3] BDD Feature - Jugadores
+[1.3.1] BDD Feature - Partidos y Estadísticas
 
 ## DescripciÃ³n y Requisitos
 ## Órden de Ejecución
 
-**Tarea:** 1.2.3
-**Dependencias:** #16 (ETL Equipos debe estar completo - los jugadores dependen de equipos)
-**Bloquea a:** #18 (ETL Jugadores)
+**Tarea:** 1.3.1 (Primera tarea de Sub-fase 1.3)
+**Dependencias:** #12-#18 (Toda la Sub-fase 1.1 y 1.2 deben estar completas)
+**Bloquea a:** #20 (ETL Partidos)
 
 ---
 
 ## Propósito
 
-Crear el archivo de feature Gherkin para la ingesta de jugadores, siguiendo el flujo TDD/BDD.
+Crear el archivo de feature Gherkin para la ingesta de partidos y estadísticas de jugadores, siguiendo el flujo TDD/BDD.
 
 ## Contexto y Referencias
 
-* **Fase del Proyecto:** Fase 1.2 - Datos Maestros
+* **Fase del Proyecto:** Fase 1.3 - Datos Transaccionales
 * **Documentación Base:** SPECIFICATIONS_GHERKIN.md
 
 ## Especificaciones de Implementación
 
 * **Lógica:**
-  - Crear archivo players.feature en backend/tests/features/
-  - Definir escenarios: Given API returns players, When I run ETL, Then DB has players
-  - Incluir relación con equipos
-  - Crear step definitions en backend/tests/step_defs/test_players_steps.py
+  - Crear archivo games.feature en backend/tests/features/
+  - Definir escenarios complejos: partidos jugados vs programados
+  - Incluir escenarios para estadísticas anidadas
+  - Crear step definitions en backend/tests/step_defs/test_games_steps.py
 
 * **Dependencias:**
   - pytest-bdd
   - pytest-asyncio
-  - Datos de equipos ya ingresados
+  - Datos de equipos y jugadores ya ingresados
 
 * **Restricciones:**
   - Seguir sintaxis Gherkin estricta
   - Los tests deben fallar inicialmente (Red phase de TDD)
+  - Manejar la complejidad de datos anidados
 
 ## Archivos Afectados / A Crear
 
-* [ ] backend/tests/features/players.feature
-* [ ] backend/tests/step_defs/test_players_steps.py
+* [ ] backend/tests/features/games.feature
+* [ ] backend/tests/step_defs/test_games_steps.py
 
 ## Criterios de Aceptación (Definition of Done)
 
