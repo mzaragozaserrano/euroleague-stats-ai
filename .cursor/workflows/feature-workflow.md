@@ -45,7 +45,7 @@ Create a Pull Request with appropriate labels.
 $issueLabels = (gh issue view <ISSUE_NUMBER> --json labels | ConvertFrom-Json).labels.name -join ","
 # If no labels found, assign based on convention: "task,backend,fase-2" (check docs/roadmap.md for phase)
 # Example with Here-String (supports tildes directly):
-gh pr create --title @"feat: implementación de búsqueda"@ --body @"Work in progress. Closes #<ISSUE_NUMBER>"@ --label "$issueLabels";
+gh pr create --title @"feat: implementación de búsqueda"@ --body @"Closes #<ISSUE_NUMBER>"@ --label "$issueLabels";
 # Note: Here-Strings (@"..."@) work with gh cli - gh handles UTF-8 natively on Windows.
 # Do NOT use subexpressions $([char]0x00XX) here - keep tildes direct.
 ```
