@@ -5,7 +5,8 @@ from typing import Optional
 
 class Settings(BaseSettings):
     database_url: str
-    openai_api_key: Optional[str] = None  # Opcional, solo necesario para Fase 2 (RAG)
+    openai_api_key: Optional[str] = None  # Para embeddings y RAG
+    openrouter_api_key: Optional[str] = None  # Para generacion de SQL con LLM
     environment: str = "development"
     log_level: str = "INFO"
 

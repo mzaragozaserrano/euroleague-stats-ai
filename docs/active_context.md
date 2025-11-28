@@ -1,9 +1,9 @@
 # Active Context
 
 ## Current Focus
-**Issue #32: 2.3 Text-to-SQL Service - Ingeniería de prompts e integración con LLM**
+**Issue #33: 2.4 Chat Endpoint - Conectar /api/chat al motor de IA**
 
-Implementando el servicio que convierte consultas en SQL usando LLM (OpenRouter). Incluye diseño de prompts con System + Few-Shot examples, validación de SQL generado y manejo de errores estructurado.
+Orquestación completa del pipeline de IA: vectorización → RAG retrieval → generación SQL → ejecución. Implementar POST /api/chat que retorna {sql, data, visualization, error?} con manejo robusto de errores.
 
 ## Recent Decisions & Achievements
 - **ETL Completed:** We have a robust, tested ETL pipeline running daily on GitHub Actions.
@@ -11,13 +11,22 @@ Implementando el servicio que convierte consultas en SQL usando LLM (OpenRouter)
 - **Tech Choice:** Validated `pytest-bdd` + `pytest-asyncio` workflow works perfectly for our async FastAPI backend.
 - **Infrastructure:** Confirmed `NullPool` configuration is working for Neon connectivity.
 - **Issue #30 Completed:** Vectorization service implemented with embeddings generation and storage.
+- **Issue #32 (In Progress):** Text-to-SQL service with OpenRouter integration and prompt engineering.
 
 ## Active Problems / Blockers
 - **None currently.** The foundation is stable.
 
+## Completed in Issue #33
+1. **BDD Tests:** 12 scenarios en `chat_endpoint.feature` con step definitions.
+2. **Text-to-SQL Service:** Implementado con OpenRouter, validación de SQL safety, reintentos.
+3. **Chat Endpoint:** Orquestación completa (RAG → SQL Gen → Execution).
+4. **Error Handling:** Status 200 siempre, errores en campo error. Timeout/LLM/BD sin crashes.
+5. **Response Format:** {sql, data, visualization, error?} garantizado < 5s.
+6. **Logging:** Logs de RAG retrieval, SQL generation, execution en stdout.
+7. **Documentation:** Setup guide con troubleshooting y arquitectura.
+
 ## Next Steps (Immediate)
-1. **Implement Text-to-SQL Service:** Create `backend/app/services/text_to_sql.py` with `generate_sql(query: str, schema_context: str)` function.
-2. **Design Prompt Engineering:** System prompt + Few-Shot SQL examples for common query patterns.
-3. **Integrate OpenRouter API:** Call LLM with low-cost model, handle rate limits and errors.
-4. **SQL Validation:** Reject DROP/DELETE statements and malicious queries.
-5. **Structured Response:** Return JSON with `{sql, data, visualization, latency}` format.
+1. **Issue #34 (Testing):** Ampliar BDD tests con casos de edge cases e integracion.
+2. **Frontend Integration:** Implementar chat UI en Next.js que consuma /api/chat.
+3. **Schema Embeddings:** Generar embeddings iniciales de metadatos para RAG.
+4. **Performance Tuning:** Caché de queries frecuentes, optimización de prompts.
