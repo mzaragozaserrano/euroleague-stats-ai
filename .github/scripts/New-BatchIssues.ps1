@@ -13,8 +13,10 @@ if (Test-Path "$PSScriptRoot/Enable-Utf8.ps1") {
 
 # --- ZONA EDITABLE POR EL AGENTE ---
 # El agente rellenará este array basándose en el Roadmap.
-# IMPORTANTE AGENTE: Usa codificación Hex para caracteres especiales. 
-# Ej: "Configuraci$([char]0x00F3)n"
+# IMPORTANTE AGENTE: 
+# 1. Usa codificación Hex para caracteres especiales. Ej: "Configuraci$([char]0x00F3)n"
+# 2. Consulta .github/docs/labels_convention.md para asignar labels correctamente.
+#    Formato: "tipo,tecnologia,fase-X" (ej: "task,backend,fase-2")
 $issues = @(
     @{ 
         Title = "Ejemplo: Tarea Inicial"; 

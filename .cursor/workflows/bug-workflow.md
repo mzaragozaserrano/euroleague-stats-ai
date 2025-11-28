@@ -35,12 +35,18 @@ git push -u origin HEAD;
 ```
 
 ## Step 4: Create Draft Pull Request
-Create a PR to track the fix.
-**CRITICAL:** Sanitize the title using `.github/docs/windows_utf8_setup.md`.
+Create a PR to track the fix with appropriate labels.
+**CRITICAL:** 
+1. Sanitize the title using `.github/docs/windows_utf8_setup.md`.
+2. Read the issue labels using `gh issue view <ISSUE_NUMBER> --json labels` to inherit them, or assign labels following `.github/docs/labels_convention.md`.
 
 ```powershell
+# Get issue labels to inherit them
+$issueLabels = (gh issue view <ISSUE_NUMBER> --json labels | ConvertFrom-Json).labels.name -join ","
+# If no labels found, assign based on convention: "bug,backend,fase-2" (check docs/roadmap.md for phase)
 # Title Example: "fix: correcci$([char]0x00F3)n del timer"
-gh pr create --draft --title "fix: <SANITIZED_TITLE>" --body "Investigating bug. Closes #<ISSUE_NUMBER>";
+gh pr create --draft --title "fix: <SANITIZED_TITLE>" --body "Investigating bug. Closes #<ISSUE_NUMBER>" --label "$issueLabels";
+# Note: If labels don't exist, GitHub CLI will create them automatically.
 ```
 
 ## Step 5: Execution Loop

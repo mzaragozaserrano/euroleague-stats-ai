@@ -14,15 +14,22 @@ You must update the content of the `$issues` array inside `.github/scripts/New-B
 
 **Instructions for the Agent:**
 1. **ENCODING CHECK (CRITICAL):** You are running on Windows PowerShell. You MUST NOT use raw special characters (ñ, á, é, etc.).
-2. **Consult Reference:** Read `.github/docs/WINDOWS_UTF8_SETUP.md` to get the hex codes.
+2. **Consult References:** 
+   - Read `.github/docs/windows_utf8_setup.md` to get the hex codes.
+   - Read `.github/docs/labels_convention.md` to determine correct labels.
 3. **Sanitize Strings:** Replace every special character in `Title` and `Body` with its subexpression equivalent (e.g., `$([char]0x00F3)` for `ó`).
    - ❌ "Opción de Menú"
    - ✅ "Opci$([char]0x00F3)n de Men$([char]0x00FA)"
+4. **Assign Labels:** For each issue, assign labels following the convention:
+   - **Type:** `task`, `bug`, or `documentation`
+   - **Technology:** `backend`, `frontend`, `database`, `devops`, or `testing`
+   - **Phase:** `fase-1`, `fase-2`, `fase-3`, or `fase-4` (based on the roadmap phase)
+   - Format in script: `Labels = "task,backend,fase-2"` (comma-separated, no spaces)
 
 **Example of code to inject:**
 ```powershell
 $issues = @(
-    @{ Title = "UI: Bot$([char]0x00F3)n de P$([char]0x00E1)nico"; Body = "Crear acci$([char]0x00F3)n r$([char]0x00E1)pida..."; Labels = "feat, phase-2" }
+    @{ Title = "UI: Bot$([char]0x00F3)n de P$([char]0x00E1)nico"; Body = "Crear acci$([char]0x00F3)n r$([char]0x00E1)pida..."; Labels = "task,frontend,fase-3" }
 )
 ```
 

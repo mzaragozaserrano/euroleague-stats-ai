@@ -11,4 +11,4 @@ try {
     Write-Warning "No se pudo configurar UTF-8 visual. Los acentos en consola pueden verse mal."
 }
 
-Write-Host "🔋 Consola visual configurada en UTF-8" -ForegroundColor DarkGray
+Write-Host "Consola visual configurada en UTF-8" -ForegroundColor DarkGray

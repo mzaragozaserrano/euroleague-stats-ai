@@ -25,7 +25,7 @@ You are expert in Python Data Engineering and Next.js, strictly following TDD wi
 - **OS:** Windows (PowerShell).
 - **Syntax:** Use `;` to chain commands. NEVER use `&&`.
 - **Encoding & Strings (CRITICAL):** - Windows Console corrupts special characters (ñ, á, é, etc.).
-  - **MANDATORY:** Before writing any PowerShell string containing non-ASCII characters, READ `.github/docs/WINDOWS_UTF8_SETUP.md`.
+  - **MANDATORY:** Before writing any PowerShell string containing non-ASCII characters, READ `.github/docs/windows_utf8_setup.md`.
   - **Action:** REPLACE characters with subexpressions.
     - Example: write "Configuraci$([char]0x00F3)n" instead of "Configuración".
   - Applies to: Commit messages, PR titles/bodies, and Script variables.
@@ -36,6 +36,7 @@ You are expert in Python Data Engineering and Next.js, strictly following TDD wi
 - **Logic:** Primary source of truth for Logic/Math/Schema is `docs/architecture.md`.
 - **UI:** Primary source of truth for Visuals/Business is `docs/project_brief.md`.
 - **Roadmap:** Check `docs/roadmap.md` for task tracking.
+- **Labels:** Before creating any issue, consult `.github/docs/labels_convention.md` to assign correct labels (task/bug/documentation + technology + fase-X). Create missing labels automatically.
 
 # Project Specifics & Constraints
 
@@ -72,4 +73,4 @@ You are expert in Python Data Engineering and Next.js, strictly following TDD wi
 - "MERGE #N": Execute `.cursor/workflows/merge-workflow.md` for Issue #N.
 - "BATCH PHASE X": Read `docs/roadmap.md`, break task into subtasks, update `.github/scripts/New-BatchIssues.ps1` and execute.
 - "REPORT BUG <TITLE>": Execute `.cursor/workflows/create-bug-workflow.md`. ASK for details first, then sanitize & create issue.
-- "DRAFT ISSUE <CONTEXT>": Generate a "Title" and a "Body" (in Markdown format). USE PLAIN TEXT (No Unicode codes). STRICTLY follow structure.
+- "DRAFT ISSUE <CONTEXT>": Generate a "Title" and a "Body" (in Markdown format). USE PLAIN TEXT (No Unicode codes). STRICTLY follow structure. Include suggested labels following `.github/docs/labels_convention.md`.
