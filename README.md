@@ -37,18 +37,34 @@ La documentación completa del proyecto se encuentra en la carpeta [`docs/`](./d
 
 Documentación histórica de fases completadas y en progreso en [`docs/history/`](./docs/history/):
 - [`FASE_0_COMPLETADA.md`](./docs/history/FASE_0_COMPLETADA.md) - Resumen de la Fase 0: Scaffolding & Setup
-- [`FASE_1_EN_PROGRESO.md`](./docs/history/FASE_1_EN_PROGRESO.md) - Estado actual de la Fase 1: Data Pipeline MVP
+- [`FASE_1_COMPLETADA.md`](./docs/history/FASE_1_COMPLETADA.md) - Resumen de la Fase 1: Data Pipeline MVP ✅
 - [`SETUP_STATUS.md`](./docs/history/SETUP_STATUS.md) - Estado detallado del setup inicial
 
 ## Estado del Proyecto
 
 🚧 **En desarrollo** - MVP en construcción (3 semanas)
 
+**Progreso Actual:**
+- ✅ **Fase 0**: Scaffolding & Setup - COMPLETADA
+- ✅ **Fase 1**: Data Pipeline MVP - COMPLETADA (Enero 2025)
+  - ✅ Sub-fase 1.1: Cimientos del Dominio
+  - ✅ Sub-fase 1.2: Datos Maestros (Teams & Players)
+  - ✅ Sub-fase 1.3: Datos Transaccionales (Games & Stats)
+- ⏳ **Fase 2**: Backend & AI Engine - PRÓXIMA
+- ⏳ **Fase 3**: Frontend MVP - PENDIENTE
+
+### Progreso de Fases
+
+- ✅ **Fase 0**: Scaffolding & Setup - COMPLETADA
+- ✅ **Fase 1**: Data Pipeline MVP - COMPLETADA
+- ⏳ **Fase 2**: Backend & AI Engine - PENDIENTE
+- ⏳ **Fase 3**: Frontend MVP - PENDIENTE
+
 ### Hoja de Ruta
 
-- **Semana 1**: Fundación (Data & Infraestructura)
-- **Semana 2**: El Cerebro (Backend & IA)
-- **Semana 3**: Experiencia (Frontend & Polish)
+- ✅ **Semana 1**: Fundación (Data & Infraestructura) - COMPLETADA
+- ⏳ **Semana 2**: El Cerebro (Backend & IA) - EN PROGRESO
+- ⏳ **Semana 3**: Experiencia (Frontend & Polish) - PENDIENTE
 
 ## Prerrequisitos
 

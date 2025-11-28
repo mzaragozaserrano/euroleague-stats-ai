@@ -73,13 +73,14 @@ class EuroleagueClient:
     BASE_URL = "https://api-live.euroleague.net"
 
     # Endpoints principales
+    # NOTA: La API puede no soportar v3, probar sin versión o con v2
     ENDPOINTS = {
-        "teams": "/v3/teams",
-        "players": "/v3/players",
-        "games": "/v3/games",
-        "playerstats": "/v3/playerstats",
-        "standings": "/v3/standings",
-        "teamstats": "/v3/teamstats",
+        "teams": "/teams",  # Sin versión, la API puede determinar automáticamente
+        "players": "/players",
+        "games": "/games",
+        "playerstats": "/playerstats",
+        "standings": "/standings",
+        "teamstats": "/teamstats",
     }
 
     # Configuración de reintentos
