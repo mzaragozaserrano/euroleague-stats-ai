@@ -1,54 +1,55 @@
-# ðŸŽ¯ TAREA ACTIVA: ISSUE #12
+# ðŸŽ¯ TAREA ACTIVA: ISSUE #16
 
 ## TÃ­tulo
-[1.1.1] Diseño del Esquema de Base de Datos
+[1.2.2] ETL Equipos
 
 ## DescripciÃ³n y Requisitos
 ## Órden de Ejecución
 
-**Tarea:** 1.1.1 (Primera tarea de la Fase 1)
-**Dependencias:** Ninguna - Esta es la tarea inicial
-**Bloquea a:** #13 (Modelos SQLAlchemy)
+**Tarea:** 1.2.2
+**Dependencias:** #15 (BDD Feature debe estar creado primero - TDD)
+**Bloquea a:** #17 (BDD Jugadores)
 
 ---
 
 ## Propósito
 
-Crear el esquema inicial de la base de datos PostgreSQL con todas las tablas necesarias para almacenar datos de la Euroliga: equipos, jugadores, partidos, estadísticas y embeddings para RAG.
+Implementar el script ETL para ingestar datos de equipos desde la API de Euroleague a la base de datos.
 
 ## Contexto y Referencias
 
-* **Fase del Proyecto:** Fase 1.1 - Cimientos del Dominio
-* **Documentación Base:** TECHNICAL_PLAN.md, SPECIFICATIONS.md
+* **Fase del Proyecto:** Fase 1.2 - Datos Maestros
+* **Documentación Base:** TECHNICAL_PLAN.md
 
 ## Especificaciones de Implementación
 
 * **Lógica:**
-  - Crear archivo de migración SQL con el esquema completo
-  - Incluir extensión pgvector para búsqueda vectorial
-  - Definir tablas: teams, players, games, player_stats_games, schema_embeddings
-  - Establecer relaciones (foreign keys) entre tablas
-  - Añadir índices para optimizar consultas frecuentes
+  - Usar EuroleagueClient para obtener datos de equipos
+  - Transformar datos de la API al formato de los modelos SQLAlchemy
+  - Persistir datos usando los modelos Team
+  - Implementar lógica de upsert para evitar duplicados
+  - Hacer que los tests BDD pasen (Green phase de TDD)
 
 * **Dependencias:**
-  - PostgreSQL con extensión pgvector
-  - Neon Serverless Database
+  - euroleague_client.py
+  - Modelos SQLAlchemy
+  - Conexión a Neon DB
 
 * **Restricciones:**
-  - Diseño optimizado para <0.5GB (límite free tier de Neon)
-  - Considerar que se usará NullPool (sin connection pooling)
+  - Los tests BDD deben pasar al finalizar
+  - Manejar errores de red y base de datos
 
 ## Archivos Afectados / A Crear
 
-* [ ] backend/migrations/001_initial_schema.sql
+* [ ] backend/etl/ingest_teams.py
 
 ## Criterios de Aceptación (Definition of Done)
 
-- [ ] El archivo de migración SQL está creado y es ejecutable
-- [ ] Todas las tablas definidas en TECHNICAL_PLAN.md están incluidas
-- [ ] La extensión pgvector está habilitada
-- [ ] Las relaciones entre tablas están correctamente definidas
-- [ ] El esquema ha sido validado en una instancia local de PostgreSQL
+- [ ] El script ETL funciona correctamente
+- [ ] Los datos se persisten en la base de datos
+- [ ] Los tests BDD pasan (Green phase)
+- [ ] El código está refactorizado (Refactor phase)
+- [ ] El código pasa el linter
 
 ---
 ## INSTRUCCIONES PARA EL AGENTE

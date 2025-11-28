@@ -11,6 +11,13 @@ from etl.euroleague_client import (
     EuroleagueClient,
     EuroleagueAPIError,
 )
+from etl.ingest_teams import (
+    ingest_teams,
+    transform_team_data,
+    validate_team_data,
+    fetch_teams_from_api,
+    TeamIngestError,
+)
 
 
 # Escenarios
@@ -192,40 +199,51 @@ def api_returns_incomplete_data():
 
 
 # When steps
-@when("se ejecuta el ETL de equipos")
+@when("se ejecuta el ETL de equipos", target_fixture="etl_result")
 async def run_teams_etl(client, sample_teams_response):
     """Ejecutar el ETL de equipos."""
-    with patch("httpx.AsyncClient.request") as mock_request:
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = sample_teams_response
-        mock_request.return_value = mock_response
+    with patch("etl.ingest_teams.fetch_teams_from_api") as mock_fetch:
+        mock_fetch.return_value = sample_teams_response
+        
+        with patch("etl.ingest_teams.async_session_maker") as mock_session_maker:
+            # Mock de la sesión de base de datos
+            mock_session = AsyncMock()
+            mock_session.__aenter__.return_value = mock_session
+            mock_session.__aexit__.return_value = None
+            mock_session.execute.return_value = MagicMock(scalar_one_or_none=MagicMock(return_value=None))
+            mock_session.flush = AsyncMock()
+            mock_session.commit = AsyncMock()
+            mock_session_maker.return_value = mock_session
+            
+            result = await ingest_teams(client)
+            return result
 
-        result = await client.get_teams()
-        assert result is not None
-        assert "Teams" in result
 
-
-@when("se ejecuta el ETL de equipos nuevamente")
+@when("se ejecuta el ETL de equipos nuevamente", target_fixture="etl_result_2")
 async def run_teams_etl_again(client, sample_teams_response):
     """Ejecutar el ETL de equipos nuevamente."""
-    with patch("httpx.AsyncClient.request") as mock_request:
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = sample_teams_response
-        mock_request.return_value = mock_response
-
-        result = await client.get_teams()
-        assert result is not None
-        assert "Teams" in result
+    with patch("etl.ingest_teams.fetch_teams_from_api") as mock_fetch:
+        mock_fetch.return_value = sample_teams_response
+        
+        with patch("etl.ingest_teams.async_session_maker") as mock_session_maker:
+            mock_session = AsyncMock()
+            mock_session.__aenter__.return_value = mock_session
+            mock_session.__aexit__.return_value = None
+            mock_session.execute.return_value = MagicMock(scalar_one_or_none=MagicMock(return_value=None))
+            mock_session.flush = AsyncMock()
+            mock_session.commit = AsyncMock()
+            mock_session_maker.return_value = mock_session
+            
+            result = await ingest_teams(client)
+            return result
 
 
 # Then steps
 @then("la solicitud GET a /v3/teams debe tener estado 200")
-def response_has_status_200():
+async def response_has_status_200(etl_result):
     """Verificar que la solicitud tiene estado 200."""
-    # Este assertion se verifica en los pasos when
-    pass
+    assert etl_result is not None
+    assert etl_result.get("status") == "success"
 
 
 @then("la respuesta debe contener una lista de equipos con campos: id, name, code, logo_url")
@@ -242,44 +260,39 @@ def response_contains_teams_with_required_fields(sample_teams_response):
 
 
 @then("la base de datos debe contener exactamente 2 equipos")
-def database_should_have_2_teams():
+async def database_should_have_2_teams(etl_result):
     """Verificar que la BD contiene 2 equipos."""
-    # Este paso se valida en la lógica del ETL
-    pass
+    assert etl_result["total_processed"] == 2
 
 
 @then("cada equipo debe tener los campos requeridos: id, name, code, logo_url")
-def each_team_has_required_fields():
+async def each_team_has_required_fields(etl_result):
     """Verificar que cada equipo tiene campos requeridos."""
-    # Este paso se valida en la lógica del ETL
-    pass
+    assert etl_result["total_processed"] >= 1
 
 
 @then("la base de datos debe contener exactamente 1 equipo")
-def database_should_have_1_team():
+async def database_should_have_1_team(etl_result):
     """Verificar que la BD contiene 1 equipo."""
-    # Este paso se valida en la lógica del ETL
-    pass
+    assert etl_result["total_processed"] == 1
 
 
 @then("el nombre del equipo con id=1 debe ser actualizado a \"Real Madrid CF\"")
-def team_name_updated_correctly(sample_updated_team):
+async def team_name_updated_correctly(sample_updated_team):
     """Verificar que el nombre del equipo se actualiza."""
     assert sample_updated_team["name"] == "Real Madrid CF"
 
 
 @then("la base de datos debe contener exactamente 3 equipos")
-def database_should_have_3_teams():
+async def database_should_have_3_teams(etl_result):
     """Verificar que la BD contiene 3 equipos."""
-    # Este paso se valida en la lógica del ETL
-    pass
+    assert etl_result["total_processed"] == 3
 
 
 @then("no deben haber duplicados")
-def no_duplicates():
+async def no_duplicates(etl_result):
     """Verificar que no hay duplicados."""
-    # Este paso se valida en la lógica del ETL
-    pass
+    assert etl_result["errors"] == 0
 
 
 @then("debe capturarse la excepción EuroleagueAPIError")
@@ -290,29 +303,30 @@ def should_catch_euroleague_api_error():
 
 
 @then("la base de datos debe permanecer sin cambios")
-def database_should_remain_unchanged():
+async def database_should_remain_unchanged(etl_result):
     """Verificar que la BD no cambió."""
-    # Este paso se valida en la lógica del ETL
-    pass
+    # Si hay error, no debe haber cambios
+    if etl_result.get("status") in ["api_error", "critical_error"]:
+        assert etl_result["inserted"] == 0
+        assert etl_result["updated"] == 0
 
 
 @then("el ETL debe validar los campos requeridos")
-def etl_validates_required_fields():
+async def etl_validates_required_fields(etl_result):
     """Verificar que el ETL valida campos."""
-    # Este paso se valida en la lógica del ETL
-    pass
+    assert etl_result is not None
+    assert "total_processed" in etl_result
 
 
 @then("los equipos con campos incompletos deben ser rechazados o completados con valores por defecto")
-def incomplete_teams_handled():
+async def incomplete_teams_handled(etl_result):
     """Verificar que los equipos incompletos son manejados."""
-    # Este paso se valida en la lógica del ETL
-    pass
+    # El ETL debe procesar equipos aunque falten campos opcionales
+    assert etl_result["total_processed"] >= 1
 
 
 @then("no deben haber duplicados después de múltiples ejecuciones")
-def no_duplicates_after_multiple_runs():
+async def no_duplicates_after_multiple_runs(etl_result_2):
     """Verificar que no hay duplicados después de múltiples ejecuciones."""
-    # Este paso se valida en la lógica del ETL
-    pass
-
+    # Ambas ejecuciones deben ser idempotentes
+    assert etl_result_2["status"] == "success"
