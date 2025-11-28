@@ -1,9 +1,9 @@
 # Active Context
 
 ## Current Focus
-**Issue #33: 2.4 Chat Endpoint - Conectar /api/chat al motor de IA**
+**Issue #34: 2.5 Testing - BDD para precisión SQL**
 
-Orquestación completa del pipeline de IA: vectorización → RAG retrieval → generación SQL → ejecución. Implementar POST /api/chat que retorna {sql, data, visualization, error?} con manejo robusto de errores.
+Escribir tests BDD (pytest-bdd) para validar la calidad del SQL generado. Crear escenarios para TOP/ORDER BY, validar SQL safety contra inyecciones, y recuperar schema relevante del historial de chat. Target: 10+ scenarios con cobertura >= 85% en services/.
 
 ## Recent Decisions & Achievements
 - **ETL Completed:** We have a robust, tested ETL pipeline running daily on GitHub Actions.
@@ -14,7 +14,7 @@ Orquestación completa del pipeline de IA: vectorización → RAG retrieval → 
 - **Issue #32 (In Progress):** Text-to-SQL service with OpenRouter integration and prompt engineering.
 
 ## Active Problems / Blockers
-- **None currently.** The foundation is stable.
+- **Issue #34 (In Progress):** Testing BDD para SQL generation - validación de safety, edge cases, integración con chat history.
 
 ## Completed in Issue #33
 1. **BDD Tests:** 12 scenarios en `chat_endpoint.feature` con step definitions.
