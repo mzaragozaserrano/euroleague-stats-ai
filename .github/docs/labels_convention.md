@@ -1,94 +1,142 @@
 # Convención de Etiquetas (Labels) para Issues y Pull Requests
 
-## Estructura de Etiquetas
+## Principios Generales
 
-Cada issue y pull request debe tener al menos una etiqueta de cada categoría según corresponda:
+Las etiquetas deben ser:
+1. **Categororizadas:** Agrupar por tipo, no por contenido específico
+2. **Mutuamente exclusivas dentro de categoría:** Un issue debe tener máximo una etiqueta por categoría
+3. **Consistentes en color:** Los mismos tipos de label siempre tienen el mismo color
+4. **Opcionales pero organizadas:** Las etiquetas recomendadas siguen esta estructura
 
-### 1. **Tipo de Tarea (Obligatorio)**
-Define la naturaleza del trabajo:
-- `task` - Tarea de desarrollo estándar - Color: `#0366d6` (Azul)
-- `bug` - Error o defecto a corregir - Color: `#d73a49` (Rojo)
-- `documentation` - Documentación o actualización de docs - Color: `#0075ca` (Azul oscuro)
+## Categorías de Etiquetas Estándar
 
-### 2. **Tecnología / Componente (Obligatorio)**
-Especifica en qué parte del stack se trabajará:
-- `backend` - Python, FastAPI, base de datos, servicios - Color: `#f9826c` (Naranja)
-- `frontend` - Next.js, React, TypeScript, UI - Color: `#a2eeef` (Cian)
-- `database` - Esquema, migraciones, queries - Color: `#ffc274` (Amarillo)
-- `devops` - CI/CD, GitHub Actions, scripts - Color: `#cccccc` (Gris)
-- `testing` - Tests, BDD, pytest - Color: `#c5def5` (Azul claro)
+### 1. **Tipo de Tarea (Recomendado)**
+Define la naturaleza del trabajo. Cada issue/PR debe tener máximo una.
 
-### 3. **Fase del Proyecto (Obligatorio)**
-Indica en qué fase se encuentra el issue:
-- `fase-1` - Data Pipeline MVP (Completada) - Color: `#d4c5f9` (Púrpura claro)
-- `fase-2` - Backend & AI Engine (Actual) - Color: `#fad8c7` (Durazno)
-- `fase-3` - Frontend MVP - Color: `#e4e669` (Verde lima)
-- `fase-4` - Post-MVP / Pro Features - Color: `#c2e0c6` (Verde claro)
+| Label | Color | Descripción |
+|-------|-------|-------------|
+| `task` | `#0366d6` (Azul) | Tarea de desarrollo estándar |
+| `bug` | `#d73a49` (Rojo) | Error o defecto a corregir |
+| `documentation` | `#0075ca` (Azul oscuro) | Documentación o actualización de docs |
+| `question` | `#d876e3` (Púrpura) | Pregunta o investigación |
+| `enhancement` | `#a2eeef` (Cian) | Mejora o feature solicitada |
 
-## Tabla de Referencia de Colores (Estándar)
+### 2. **Tecnología / Componente (Recomendado)**
+Especifica el área del proyecto. Cada issue/PR debe tener máximo una.
 
-| Categoría | Label | Color Hexadecimal | Color Visual |
-|-----------|-------|------------------|--------------|
-| **Tipo** | `task` | `#0366d6` | Azul |
-| **Tipo** | `bug` | `#d73a49` | Rojo |
-| **Tipo** | `documentation` | `#0075ca` | Azul oscuro |
-| **Tecnología** | `backend` | `#f9826c` | Naranja |
-| **Tecnología** | `frontend` | `#a2eeef` | Cian |
-| **Tecnología** | `database` | `#ffc274` | Amarillo |
-| **Tecnología** | `devops` | `#cccccc` | Gris |
-| **Tecnología** | `testing` | `#c5def5` | Azul claro |
-| **Fase** | `fase-1` | `#d4c5f9` | Púrpura claro |
-| **Fase** | `fase-2` | `#fad8c7` | Durazno |
-| **Fase** | `fase-3` | `#e4e669` | Verde lima |
-| **Fase** | `fase-4` | `#c2e0c6` | Verde claro |
+| Label | Color | Descripción |
+|-------|-------|-------------|
+| `backend` | `#f9826c` (Naranja) | Backend, API, servicios |
+| `frontend` | `#a2eeef` (Cian) | Frontend, UI, cliente |
+| `database` | `#ffc274` (Amarillo) | Base de datos, esquema, queries |
+| `devops` | `#cccccc` (Gris) | CI/CD, infraestructura, scripts |
+| `testing` | `#c5def5` (Azul claro) | Tests, QA, validación |
 
-## Ejemplos de Combinación
+### 3. **Estado / Prioridad (Opcional)**
+Clasifica urgencia o estado del trabajo.
 
-| Issue | Etiquetas |
-|-------|-----------|
-| Implementar endpoint `/api/chat` | `task` (azul), `backend` (naranja), `fase-2` (durazno) |
-| Bug en validación de embeddings | `bug` (rojo), `backend` (naranja), `fase-2` (durazno) |
-| Crear componente Chat UI | `task` (azul), `frontend` (cian), `fase-3` (verde lima) |
-| Escribir tests para RAG Service | `testing` (azul claro), `backend` (naranja), `fase-2` (durazno) |
-| Documentar arquitectura RAG | `documentation` (azul oscuro), `backend` (naranja), `fase-2` (durazno) |
+| Label | Color | Descripción |
+|-------|-------|-------------|
+| `priority-high` | `#d73a49` (Rojo) | Alta prioridad |
+| `priority-medium` | `#ffc274` (Amarillo) | Prioridad media |
+| `priority-low` | `#c5def5` (Azul claro) | Baja prioridad |
+| `blocked` | `#cccccc` (Gris) | Bloqueado por otra tarea |
+| `in-progress` | `#f9826c` (Naranja) | Trabajo en curso |
+| `review` | `#0075ca` (Azul oscuro) | En revisión |
 
-## Cómo Crear Labels con Colores Estándar
+### 4. **Otras Etiquetas Estándar de GitHub (Opcional)**
+Etiquetas convencionales que GitHub sugiere.
 
-### Script PowerShell para crear todos los labels
+| Label | Color | Descripción |
+|-------|-------|-------------|
+| `good first issue` | `#7057ff` (Púrpura claro) | Buena para nuevos contributores |
+| `help wanted` | `#008672` (Verde) | Se busca ayuda |
+| `duplicate` | `#cfd3d7` (Gris claro) | Duplicado de otro issue |
+| `wontfix` | `#ffffff` (Blanco/Negro) | No será solucionado |
+| `invalid` | `#e4e669` (Verde lima) | No válido o incompleto |
+
+## Tabla de Referencia de Colores
+
+| Color Hexadecimal | Color Visual | Uso Recomendado |
+|------------------|--------------|-----------------|
+| `#0366d6` | Azul | Tareas, documentación base |
+| `#d73a49` | Rojo | Bugs, prioridad alta |
+| `#0075ca` | Azul oscuro | Documentación, revisiones |
+| `#a2eeef` | Cian | Frontend, enhancements |
+| `#f9826c` | Naranja | Backend, en progreso |
+| `#ffc274` | Amarillo | Database, prioridad media |
+| `#cccccc` | Gris | DevOps, bloqueado |
+| `#c5def5` | Azul claro | Testing, prioridad baja |
+| `#7057ff` | Púrpura claro | Good first issue |
+| `#008672` | Verde | Help wanted |
+| `#e4e669` | Verde lima | Invalid, estado |
+| `#cfd3d7` | Gris claro | Duplicado |
+| `#ffffff` | Blanco/Negro | Wontfix |
+
+## Pautas de Uso
+
+### Para Issues
+
+- **Asignación:** Cada issue debe tener al menos una etiqueta de "Tipo de Tarea" y opcionalmente de "Tecnología"
+- **Múltiples etiquetas:** Permitir máximo una por categoría
+- **Ejemplos:**
+  - Issue con bug en backend: `bug` + `backend`
+  - Tarea de documentación: `documentation`
+  - Feature en frontend: `enhancement` + `frontend`
+
+### Para Pull Requests
+
+- **Heredar del Issue:** Si el PR cierra un issue, heredar sus labels
+- **Si no hay issue:** Asignar labels siguiendo la misma estructura
+- **Agregar estado:** Usar `in-progress`, `review` según sea necesario
+
+## Cómo Implementar Estos Labels
+
+### Script PowerShell genérico
 
 ```powershell
-# Ejecutar en PowerShell
-$labels = @(
-    @{ name = "task"; description = "Tarea de desarrollo estándar"; color = "0366d6" }
-    @{ name = "bug"; description = "Error o defecto a corregir"; color = "d73a49" }
-    @{ name = "documentation"; description = "Documentación o actualización de docs"; color = "0075ca" }
-    @{ name = "backend"; description = "Python, FastAPI, base de datos, servicios"; color = "f9826c" }
-    @{ name = "frontend"; description = "Next.js, React, TypeScript, UI"; color = "a2eeef" }
-    @{ name = "database"; description = "Esquema, migraciones, queries"; color = "ffc274" }
-    @{ name = "devops"; description = "CI/CD, GitHub Actions, scripts"; color = "cccccc" }
-    @{ name = "testing"; description = "Tests, BDD, pytest"; color = "c5def5" }
-    @{ name = "fase-1"; description = "Data Pipeline MVP (Completada)"; color = "d4c5f9" }
-    @{ name = "fase-2"; description = "Backend & AI Engine (Actual)"; color = "fad8c7" }
-    @{ name = "fase-3"; description = "Frontend MVP"; color = "e4e669" }
-    @{ name = "fase-4"; description = "Post-MVP / Pro Features"; color = "c2e0c6" }
+# Crear todas las etiquetas estándar
+$standardLabels = @(
+    # Tipo de Tarea
+    @{ name = "task"; color = "0366d6"; description = "Tarea de desarrollo estándar" }
+    @{ name = "bug"; color = "d73a49"; description = "Error o defecto a corregir" }
+    @{ name = "documentation"; color = "0075ca"; description = "Documentación" }
+    @{ name = "question"; color = "d876e3"; description = "Pregunta o investigación" }
+    @{ name = "enhancement"; color = "a2eeef"; description = "Mejora o feature solicitada" }
+    
+    # Tecnología
+    @{ name = "backend"; color = "f9826c"; description = "Backend, API, servicios" }
+    @{ name = "frontend"; color = "a2eeef"; description = "Frontend, UI, cliente" }
+    @{ name = "database"; color = "ffc274"; description = "Base de datos" }
+    @{ name = "devops"; color = "cccccc"; description = "CI/CD, infraestructura" }
+    @{ name = "testing"; color = "c5def5"; description = "Tests y QA" }
+    
+    # Estado/Prioridad
+    @{ name = "priority-high"; color = "d73a49"; description = "Alta prioridad" }
+    @{ name = "priority-medium"; color = "ffc274"; description = "Prioridad media" }
+    @{ name = "priority-low"; color = "c5def5"; description = "Baja prioridad" }
+    @{ name = "blocked"; color = "cccccc"; description = "Bloqueado" }
+    @{ name = "in-progress"; color = "f9826c"; description = "En progreso" }
+    @{ name = "review"; color = "0075ca"; description = "En revisión" }
+    
+    # Estándar GitHub
+    @{ name = "good first issue"; color = "7057ff"; description = "Bueno para principiantes" }
+    @{ name = "help wanted"; color = "008672"; description = "Se busca ayuda" }
+    @{ name = "duplicate"; color = "cfd3d7"; description = "Duplicado" }
+    @{ name = "wontfix"; color = "ffffff"; description = "No será solucionado" }
+    @{ name = "invalid"; color = "e4e669"; description = "No válido" }
 )
 
-foreach ($label in $labels) {
-    gh label create $label.name --description $label.description --color $label.color --force
+foreach ($label in $standardLabels) {
+    gh label create $label.name --color $label.color --description $label.description --force
 }
+
+Write-Host "Labels estándar creados exitosamente"
 ```
-
-## Aplicación a Pull Requests
-
-Los Pull Requests deben usar la misma convención de labels que los Issues:
-
-- **Heredar labels del Issue:** Si el PR cierra un issue (usando "Closes #N"), el PR debe tener los mismos labels que el issue.
-- **Asignación manual:** Si el PR no está vinculado a un issue, asignar labels siguiendo la misma estructura (tipo + tecnología + fase).
-- **Tipo para PRs:** Usar `task` para features, `bug` para fixes, `documentation` para docs.
 
 ## Notas
 
-- **Todas las etiquetas deben existir** en el repositorio. Si no existen, crearlas automáticamente sin preguntar.
-- Los colores son **estándar y consistentes** en todos los proyectos que usen esta convención.
-- No usar etiquetas adicionales sin documentarlas aquí.
-- Mantener esta convención consistente en todo el proyecto (Issues y PRs).
+- Esta convención es **agnóstica del proyecto**. Cada proyecto puede agregar labels específicos según necesite
+- Los colores son **estándar y consistentes** en todos los proyectos que usen esta convención
+- Para agregar labels específicos del proyecto, crear un archivo separado: `.github/docs/PROJECT_LABELS.md`
+- Los labels deben ser en minúsculas y con guiones (kebab-case): `good-first-issue`, no `Good First Issue`
