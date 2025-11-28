@@ -10,7 +10,7 @@ Las etiquetas deben ser:
 
 ## Categorías de Etiquetas Estándar
 
-### 1. **Tipo de Tarea (Recomendado)**
+### 1. **Tipo de Tarea**
 Define la naturaleza del trabajo. Cada issue/PR debe tener máximo una.
 
 | Label | Color | Descripción |
@@ -21,7 +21,7 @@ Define la naturaleza del trabajo. Cada issue/PR debe tener máximo una.
 | `question` | `#d876e3` (Púrpura) | Pregunta o investigación |
 | `enhancement` | `#a2eeef` (Cian) | Mejora o feature solicitada |
 
-### 2. **Tecnología / Componente (Recomendado)**
+### 2. **Tecnología / Componente**
 Especifica el área del proyecto. Cada issue/PR debe tener máximo una.
 
 | Label | Color | Descripción |
@@ -32,7 +32,7 @@ Especifica el área del proyecto. Cada issue/PR debe tener máximo una.
 | `devops` | `#cccccc` (Gris) | CI/CD, infraestructura, scripts |
 | `testing` | `#c5def5` (Azul claro) | Tests, QA, validación |
 
-### 3. **Estado / Prioridad (Opcional)**
+### 3. **Estado / Prioridad**
 Clasifica urgencia o estado del trabajo.
 
 | Label | Color | Descripción |
@@ -44,7 +44,7 @@ Clasifica urgencia o estado del trabajo.
 | `in-progress` | `#f9826c` (Naranja) | Trabajo en curso |
 | `review` | `#0075ca` (Azul oscuro) | En revisión |
 
-### 4. **Otras Etiquetas Estándar de GitHub (Opcional)**
+### 4. **Otras Etiquetas Estándar de GitHub**
 Etiquetas convencionales que GitHub sugiere.
 
 | Label | Color | Descripción |
