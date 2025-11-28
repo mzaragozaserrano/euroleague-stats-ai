@@ -13,12 +13,12 @@ The agent must ensure the bug report is complete.
    *Wait for user response before proceeding.*
 
 ## Step 2: Content Preparation & Sanitization
-**CRITICAL:** You are running on Windows PowerShell.
+**Context: LOCAL PowerShell + gh cli (which handles UTF-8 natively)**
 1. **Consult References:** 
-   - Read `.github/docs/windows_utf8_setup.md` for encoding.
+   - Read `.github/docs/windows_utf8_setup.md` for context.
    - Read `.github/docs/labels_convention.md` for label structure.
-2. **Prepare Strings:** Use Here-Strings (@"..."@) for title and body to support tildes directly.
-   - Example: @"Error en validación"@ (no need for $([char]0x00F3)n escaping)
+2. **Prepare Strings:** Use Here-Strings (@"..."@) for title and body. Write tildes directly - `gh cli` handles them.
+   - Example: @"Error en validación"@ (tildes work fine - no subexpressions needed)
 3. **Determine Labels:** Based on the bug context, assign labels following the convention:
    - **Type:** `bug` (mandatory for bugs)
    - **Technology:** `backend`, `frontend`, `database`, `devops`, or `testing`
@@ -29,7 +29,8 @@ Construct the command to create the issue with the appropriate labels using Here
 *Note: Replace `<TITLE>`, `<BODY>`, and `<LABELS>` with the actual strings. Labels format: "bug,backend,fase-2" (comma-separated).*
 
 ```powershell
-# Use Here-Strings (@"..."@) to support tildes and multi-line bodies
+# Use Here-Strings (@"..."@) for multi-line bodies with tildes
+# gh cli handles UTF-8 internally on Windows - no subexpressions needed
 $Title = @"Error en validación de entrada"@
 $Body = @"
 ## Descripción
@@ -47,7 +48,7 @@ $Labels = "bug,backend,fase-2"
 
 gh issue create --title "$Title" --body "$Body" --label "$Labels";
 # Note: If labels don't exist, GitHub CLI will create them automatically.
-# Here-Strings automatically handle UTF-8 and tildes.
+# Here-Strings + gh cli = UTF-8 works seamlessly on Windows.
 ```
 
 ## Step 4: Documentation Update

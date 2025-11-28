@@ -12,14 +12,15 @@
 ## Step 2: Update Automation Script
 You must update the content of the `$issues` array inside `.github/scripts/New-BatchIssues.ps1`.
 
-**Instructions for the Agent:**
-1. **ENCODING CHECK (CRITICAL):** You are running on Windows PowerShell. You MUST NOT use raw special characters (ñ, á, é, etc.).
+**Instructions for the Agent (LOCAL PowerShell Context):**
+1. **ENCODING CHECK (CRITICAL):** You are running on Windows PowerShell locally. However, this script uses `gh cli` which handles UTF-8 natively.
 2. **Consult References:** 
-   - Read `.github/docs/windows_utf8_setup.md` to get the hex codes.
+   - Read `.github/docs/windows_utf8_setup.md` for context.
    - Read `.github/docs/labels_convention.md` to determine correct labels.
-3. **Sanitize Strings:** Replace every special character in `Title` and `Body` with its subexpression equivalent (e.g., `$([char]0x00F3)` for `ó`).
-   - ❌ "Opción de Menú"
-   - ✅ "Opci$([char]0x00F3)n de Men$([char]0x00FA)"
+3. **String Format (RECOMMENDED - Here-Strings):** Use Here-Strings (@"..."@) for `Title` and `Body`. You can write tildes directly - `gh cli` handles them.
+   - ✅ **PREFERRED:** `Title = @"Opción de Menú"@` (tildes direct, Here-String)
+   - ⚠️ **ALTERNATIVE:** `Title = "Opción de Menú"` (raw tildes, may work but less safe)
+   - ❌ **AVOID:** `Title = "Opci$([char]0x00F3)n de Men$([char]0x00FA)"` (verboso e innecesario here)
 4. **Assign Labels:** For each issue, assign labels following the convention:
    - **Type:** `task`, `bug`, or `documentation`
    - **Technology:** `backend`, `frontend`, `database`, `devops`, or `testing`
@@ -29,7 +30,14 @@ You must update the content of the `$issues` array inside `.github/scripts/New-B
 **Example of code to inject:**
 ```powershell
 $issues = @(
-    @{ Title = "UI: Bot$([char]0x00F3)n de P$([char]0x00E1)nico"; Body = "Crear acci$([char]0x00F3)n r$([char]0x00E1)pida..."; Labels = "task,frontend,fase-3" }
+    # Using Here-Strings with direct tildes (RECOMMENDED)
+    @{ 
+        Title = @"UI: Botón de Pánico"@
+        Body = @"
+Crear acción rápida para detener el proceso.
+        "@
+        Labels = "task,frontend,fase-3" 
+    }
 )
 ```
 
