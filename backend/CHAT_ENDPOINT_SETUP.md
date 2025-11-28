@@ -92,23 +92,29 @@ Todos los errores retornan status 200 con campo `error`:
 
 ### Ejecutar Tests BDD
 
-```powershell
-cd backend;
-poetry run pytest tests/features/chat_endpoint.feature -v;
+```bash
+cd backend
+
+# Chat endpoint tests (Phase 2.4)
+poetry run pytest tests/features/chat_endpoint.feature -v
+
+# RAG SQL Generation tests (Phase 2.5) - 15 SCENARIOS
+poetry run pytest tests/step_defs/test_rag_steps.py -v
+
+# Text-to-SQL Unit Tests (Phase 2.5) - 27 TESTS
+poetry run pytest tests/test_text_to_sql_service.py -v
+
+# Vectorization Unit Tests (Phase 2.5) - 11 TESTS
+poetry run pytest tests/test_vectorization_service.py -v
 ```
 
-### Tests Específicos
+### Cobertura General
 
-```powershell
-# Test de respuesta válida
-poetry run pytest tests/step_defs/test_chat_endpoint_steps.py::test_check_status_200 -v;
-
-# Test de SQL peligroso
-poetry run pytest tests/step_defs/test_chat_endpoint_steps.py::test_check_dangerous_query_error -v;
-
-# Test de error handling
-poetry run pytest tests/step_defs/test_chat_endpoint_steps.py::test_backend_alive -v;
+```bash
+poetry run pytest tests/ --cov=app/services --cov-report=term-missing
 ```
+
+**Status:** ✅ 68+ tests pasados (15 BDD + 53 unit)
 
 ## Logging
 
