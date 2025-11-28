@@ -1,10 +1,9 @@
 # Active Context
 
 ## Current Focus
-We have successfully completed Phase 1 (Data/ETL).
-**We are now starting Phase 2: Backend & AI Engine.**
+**Issue #30: Vectorización - Script para generar embeddings de metadatos**
 
-The immediate goal is to build the "Brain" of the application: enabling the system to understand natural language and translate it into SQL queries using RAG.
+Implementando el primer paso de Phase 2: crear un servicio para generar y almacenar embeddings de descripciones de tablas y columnas usando OpenAI text-embedding-3-small.
 
 ## Recent Decisions & Achievements
 - **ETL Completed:** We have a robust, tested ETL pipeline running daily on GitHub Actions.
