@@ -4,13 +4,13 @@
     Este script es modificado automáticamente por el Agente de Cursor antes de su ejecución.
     
 .NOTES
-    Para tildes y acentos:
-    - Usa @"..."@ para bodies (Here-Strings)
-    - Escribe tildes directamente dentro del Here-String
-    - Consulta .github/docs/windows_utf8_setup.md para referencia
+    Sintaxis recomendada para títulos y bodies:
+    - Usa Here-String (@"..."@) para facilitar la lectura
+    - Puedes escribir tildes y acentos directamente
+    - Consulta .github/docs/windows_utf8_setup.md para más detalles
 #>
 
-# 1. CARGA LA CONFIGURACIÓN UTF-8 (Para que veas bien los logs)
+# 1. CARGA LA CONFIGURACIÓN UTF-8
 # $PSScriptRoot es la carpeta donde está este script.
 # Si el fichero Enable-Utf8.ps1 no existe, ignoramos el error para no romper nada.
 if (Test-Path "$PSScriptRoot/Enable-Utf8.ps1") {
@@ -20,16 +20,16 @@ if (Test-Path "$PSScriptRoot/Enable-Utf8.ps1") {
 # --- ZONA EDITABLE POR EL AGENTE ---
 # El agente rellenará este array basándose en el Roadmap.
 # IMPORTANTE AGENTE: 
-# 1. Para títulos: puedes usar tildes directamente (gh cli las maneja bien).
-# 2. Para body: OBLIGATORIO usar @"..."@ (Here-String) - aquí escribes tildes naturalmente.
+# 1. Usa Here-String (@"..."@) para títulos y bodies
+# 2. Puedes escribir tildes directamente: ñ, á, é, í, ó, ú
 # 3. Consulta .github/docs/labels_convention.md para asignar labels correctamente.
 #    Formato: "tipo,tecnologia,fase-X" (ej: "task,backend,fase-2")
 $issues = @(
     @{ 
-        Title = "Ejemplo: Tarea Inicial"; 
+        Title = @"Ejemplo: Tarea Inicial"@
         Body = @"
 Esta es una tarea de prueba. Bórrala.
-"@; 
+"@
         Labels = "documentation,setup" 
     }
 )
