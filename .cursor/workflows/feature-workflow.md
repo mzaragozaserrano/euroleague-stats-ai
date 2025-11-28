@@ -35,7 +35,7 @@ git push -u origin HEAD;
 ```
 
 ## Step 4: Create Linked Pull Request
-Create a Draft PR with appropriate labels.
+Create a Pull Request with appropriate labels.
 **CRITICAL - Context Matters (LOCAL PowerShell):** 
 1. Use Here-Strings (@"..."@) for title and body - `gh cli` handles UTF-8 internally.
 2. Read the issue labels using `gh issue view <ISSUE_NUMBER> --json labels` to inherit them, or assign labels following `.github/docs/labels_convention.md`.
@@ -45,7 +45,7 @@ Create a Draft PR with appropriate labels.
 $issueLabels = (gh issue view <ISSUE_NUMBER> --json labels | ConvertFrom-Json).labels.name -join ","
 # If no labels found, assign based on convention: "task,backend,fase-2" (check docs/roadmap.md for phase)
 # Example with Here-String (supports tildes directly):
-gh pr create --draft --title @"feat: implementación de búsqueda"@ --body @"Work in progress. Closes #<ISSUE_NUMBER>"@ --label "$issueLabels";
+gh pr create --title @"feat: implementación de búsqueda"@ --body @"Work in progress. Closes #<ISSUE_NUMBER>"@ --label "$issueLabels";
 # Note: Here-Strings (@"..."@) work with gh cli - gh handles UTF-8 natively on Windows.
 # Do NOT use subexpressions $([char]0x00XX) here - keep tildes direct.
 ```
