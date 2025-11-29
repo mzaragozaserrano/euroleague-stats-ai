@@ -15,14 +15,15 @@
 - [x] Daily Cron Workflow (GitHub Actions) operational.
 - [x] BDD Tests for ETL passed (15/15 scenarios).
 
-## Phase 2: Backend & AI Engine (CURRENT FOCUS 🚧)
-- [ ] **2.1 Vectorization:** Script to generate embeddings for Table/Column descriptions.
-- [ ] **2.2 RAG Service:** Implement `retrieve_relevant_schema`.
-- [ ] **2.3 Text-to-SQL Service:** Prompt engineering & LLM integration (OpenRouter).
-- [ ] **2.4 Chat Endpoint:** Connect `/api/chat` to the AI engine.
-- [ ] **2.5 Testing:** BDD scenarios for SQL generation accuracy.
+## Phase 2: Backend & AI Engine (COMPLETE ✅)
+- [x] **2.1 Vectorization (#30):** Script to generate embeddings for Table/Column descriptions.
+- [x] **2.2 RAG Service (#31):** Implement `retrieve_relevant_schema`.
+- [x] **2.3 Text-to-SQL Service (#32):** Prompt engineering & LLM integration (OpenRouter).
+- [x] **2.4 Chat Endpoint (#33):** Connect `/api/chat` to the AI engine.
+- [x] **2.5 Testing (#34):** BDD scenarios for SQL generation accuracy (15 scenarios + 53 unit tests).
+- [x] **2.6 Verification - MCP (#40):** Configure Neon MCP in Cursor for query sanity-checking.
 
-## Phase 3: Frontend MVP (Next Up)
+## Phase 3: Frontend MVP (NEXT UP 🚧)
 - [ ] Chat Interface (Zustand store, UI Components).
 - [ ] Data Visualizer (Recharts implementation for Bar/Line/Table).
 - [ ] Integration with Backend API.
