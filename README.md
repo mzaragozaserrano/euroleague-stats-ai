@@ -66,16 +66,27 @@ Este proyecto sigue una arquitectura dirigida por documentación. Para detalles 
 
 2. **Configurar variables de entorno:**
 
-   ```bash
-   cp .env.example .env
-   # Configurar DATABASE_URL (usar postgresql+asyncpg://) y OPENAI_API_KEY
+   Crea el archivo `backend/.env` con las siguientes variables (la carpeta backend ya tiene archivo de referencia):
+
+   ```env
+   DATABASE_URL=postgresql+asyncpg://user:password@ep-xxxxx.neon.tech/dbname?ssl=require
+   OPENROUTER_API_KEY=tu_clave_openrouter
+   OPENAI_API_KEY=tu_clave_openai
    ```
+
+   **Notas sobre DATABASE_URL:**
+   - Obtén tu URL desde el dashboard de Neon
+   - Debe usar `postgresql+asyncpg://` (no `postgresql://`)
+   - Incluye `?ssl=require` al final
+   - Reemplaza `sslmode=require` con `ssl=require` si vienes de Neon
 
 3. **Ejecutar servidor de desarrollo:**
 
    ```bash
    poetry run uvicorn app.main:app --reload
    ```
+
+   La API estará disponible en `http://localhost:8000`
 
 ### Frontend
 
@@ -92,82 +103,98 @@ Este proyecto sigue una arquitectura dirigida por documentación. Para detalles 
    npm run dev
    ```
 
+   La aplicación estará disponible en `http://localhost:3000`
+
 ---
 
 ## 🛠️ MCP Setup (Model Context Protocol)
 
 ### Descripción
 
-El protocolo MCP permite integrar herramientas externas directamente en Cursor para ejecutar y validar queries SQL contra la base de datos Neon sin dejar el editor. Esto mejora significativamente la experiencia del desarrollador (DX) permitiendo verificar la integridad de datos antes de integrar cambios en el Frontend.
+El protocolo MCP permite usar el Agent de Cursor para ejecutar consultas SQL en lenguaje natural directamente contra Neon. Con MCP configurado, puedes hacer preguntas como **"Puntos por partido de Shane Larkin"** y Cursor ejecutará automáticamente la consulta SQL necesaria.
 
 ### Requisitos Previos
 
-- ✅ Cursor Editor (versión 0.40+)
-- ✅ Base de datos Neon configurada con `DATABASE_URL` válida
-- ✅ Node.js 16+ instalado en tu máquina
+- Cursor Editor (versión 0.40+)
+- Node.js 16+ instalado
+- `backend/.env` configurado con `DATABASE_URL`
 
-### Configuración
+### Configuración Rápida
 
-1. **Verificar `DATABASE_URL` en variables de entorno:**
+1. **Asegúrate de que `backend/.env` está configurado:**
 
-   ```bash
-   # En backend/.env
-   DATABASE_URL=postgresql+asyncpg://user:password@host/database
+   ```env
+   DATABASE_URL=postgresql+asyncpg://user:password@ep-xxxxx.neon.tech/dbname?ssl=require
+   OPENROUTER_API_KEY=tu_clave_aqui
+   OPENAI_API_KEY=tu_clave_aqui
    ```
 
-2. **Configuración automática en Cursor:**
+2. **El archivo `.cursor/mcp.json` ya está configurado.**
+   - Cursor lo detectará automáticamente al reiniciar
 
-   El archivo `.cursor/mcp.json` ya está configurado. Cursor lo detectará automáticamente al reiniciar.
+3. **Reinicia Cursor completamente** (cierra y abre de nuevo)
 
-   Para verificar que está activo:
-   - Abre Cursor
-   - Presiona `Cmd+Shift+P` (Mac) o `Ctrl+Shift+P` (Windows)
-   - Busca "MCP" o "Model Context Protocol"
-   - Deberías ver opciones para usar el servidor Neon
+### Cómo Usar MCP con Cursor Agent
 
-### Uso
+Una vez configurado, abre el chat de Cursor (Ctrl+K) y haz preguntas en lenguaje natural:
 
-Una vez configurado, puedes:
+**Ejemplo 1: Puntos por partido**
+```
+Puntos por partido de Shane Larkin
+```
 
-1. **Ejecutar queries de prueba directamente en el editor:**
-   - Escribe una query SQL en un archivo temporal
-   - Usa el MCP para ejecutarla contra Neon sin salir de Cursor
+**Ejemplo 2: Estadísticas agregadas**
+```
+Dame el promedio de puntos de todos los jugadores
+```
 
-2. **Validar integridad de datos:**
-   ```sql
-   -- Ejemplo: Verificar que las estadísticas de un jugador sean coherentes
-   SELECT COUNT(*) as total_stats FROM player_stats_games
-   WHERE player_id = 123 AND points > 100;
-   ```
+**Ejemplo 3: Comparativas**
+```
+Compara los puntos y asistencias de Micic vs Larkin
+```
 
-3. **Verificar esquema:**
-   ```sql
-   -- Listar todas las tablas disponibles
-   SELECT table_name FROM information_schema.tables 
-   WHERE table_schema = 'public';
-   ```
+Cursor automáticamente:
+1. Interpreta tu pregunta
+2. Usa MCP para acceder a la base de datos
+3. Ejecuta la consulta SQL correspondiente
+4. Muestra los resultados en el chat
+
+### Verificación Manual de Conexión
+
+Si necesitas verificar que MCP funciona correctamente, revisa `backend/tests/mcp_verification_queries.sql`:
+
+```sql
+-- Health check
+SELECT current_database(), NOW();
+
+-- Contar jugadores
+SELECT COUNT(*) as total_players FROM players;
+
+-- Verificar embeddings
+SELECT COUNT(*) as total_embeddings FROM schema_embeddings;
+```
 
 ### Medidas de Seguridad
 
-- **Solo lectura:** El MCP solo permite operaciones `SELECT` y `EXPLAIN`
-- **Timeout:** Las queries tienen un límite de 5 segundos
-- **Validación:** Se valida automáticamente que no contengan keywords peligrosos (DROP, DELETE, UPDATE, INSERT, ALTER, CREATE)
-- **Límite de resultados:** Máximo 1,000 filas por query
+- **Solo lectura:** MCP solo permite `SELECT` y `EXPLAIN`
+- **Timeout:** Máximo 5 segundos por consulta
+- **Bloqueadas:** DROP, DELETE, UPDATE, INSERT, ALTER, CREATE
+- **Límite:** Máximo 1,000 filas por consulta
 
 ### Troubleshooting
 
 | Problema | Solución |
 |----------|----------|
-| MCP no aparece en Cursor | Reinicia Cursor y verifica que `.cursor/mcp.json` existe |
-| Error de conexión a Neon | Valida que `DATABASE_URL` es correcta y la red lo permite |
-| Query tarda demasiado | Reduce el rango de datos (agrega `LIMIT`) o revisa índices |
-| "Query blocked" | Verifica que solo uses SELECT; no están permitidas modificaciones |
+| MCP no funciona | Reinicia Cursor; verifica que `DATABASE_URL` existe en `backend/.env` |
+| "Database connection failed" | Valida que `DATABASE_URL` usa `postgresql+asyncpg://` y termina con `?ssl=require` |
+| Cursor no ejecuta la consulta | Asegúrate de reiniciar Cursor después de configurar `.env` |
+| "Query blocked" | Solo se permiten SELECT; no puedes hacer modificaciones |
 
 ### Recursos
 
 - [Documentación oficial de MCP](https://modelcontextprotocol.io/)
 - [Neon Documentation](https://neon.tech/docs)
-- [Cursor MCP Integration Guide](https://docs.cursor.sh/)
+- [Cursor Documentation](https://docs.cursor.sh/)
 
 ---
 

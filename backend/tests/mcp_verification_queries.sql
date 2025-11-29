@@ -97,3 +97,4 @@ FROM schema_embeddings
 ORDER BY distance
 LIMIT 3;
 
+
