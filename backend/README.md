@@ -120,6 +120,38 @@ OPENAI_API_KEY=sk-...
 poetry run pytest tests/features/schema_embeddings.feature -v
 ```
 
+## Model Context Protocol (MCP) - Cursor Integration
+
+### Descripción
+
+MCP permite que Cursor acceda directamente a la base de datos Neon para inspeccionar el esquema y ejecutar queries de verificación sin salir del editor. Útil para:
+- Inspeccionar tablas y columnas en tiempo de desarrollo
+- Verificar queries antes de integrarlas en el código
+- Ejecutar consultas de prueba contra datos reales
+
+### Configuración (Automática)
+
+MCP está configurado en `.cursor/mcp.json` con:
+- **Conexión**: Neon PostgreSQL database
+- **Operaciones permitidas**: SELECT y EXPLAIN (solo lectura)
+- **Operaciones bloqueadas**: DROP, DELETE, UPDATE, INSERT, ALTER, CREATE
+- **Timeout**: 5 segundos por query
+- **Límite de filas**: 1000 registros máximo
+
+### Uso en Cursor
+
+1. Abrir **Cursor Composer** o **Chat**
+2. Usar `@mcp` para acceder a la base de datos
+3. Ejemplo: "Dame el esquema de la tabla `players`" → Cursor ejecutará queries verificadas automáticamente
+
+### Queries de Verificación
+
+Ver `tests/mcp_verification_queries.sql` para 10 queries de prueba que validan:
+- Conectividad a Neon
+- Acceso a tablas de datos
+- Búsqueda de similitud (pgvector)
+- Rendimiento de indexes
+
 ## Estructura
 
 ```
@@ -131,18 +163,21 @@ backend/
 │   ├── models/          # Modelos ORM
 │   ├── schemas/         # Pydantic schemas
 │   ├── services/        # Lógica de negocio
-│   │   └── vectorization.py  # RAG Vectorization Service (NUEVO)
+│   │   └── vectorization.py  # RAG Vectorization Service
+│   │   └── text_to_sql.py    # Text-to-SQL Service
 │   └── routers/         # Endpoints API
 ├── etl/                 # Scripts ETL
 ├── scripts/
-│   ├── init_embeddings.py    # Inicializar schema embeddings (NUEVO)
+│   ├── init_embeddings.py    # Inicializar schema embeddings
 │   └── ...
 ├── tests/               # Tests BDD
 │   ├── features/
-│   │   └── schema_embeddings.feature  # Scenarios (NUEVO)
+│   │   ├── schema_embeddings.feature
+│   │   ├── chat_endpoint.feature
+│   │   └── ...
 │   ├── step_defs/
-│   │   └── test_schema_embeddings_steps.py  # Step definitions (NUEVO)
-│   └── conftest.py
+│   │   └── test_schema_embeddings_steps.py
+│   └── mcp_verification_queries.sql  # Queries para MCP testing
 └── pyproject.toml       # Poetry config
 ```
 

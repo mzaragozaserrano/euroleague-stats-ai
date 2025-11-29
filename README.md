@@ -16,8 +16,8 @@ Esta aplicación permite a los aficionados, analistas y jugadores de fantasy hac
 
 * ✅ **Fase 0:** Scaffolding & Setup (Completado)
 * ✅ **Fase 1:** Data Pipeline MVP (Completado - Enero 2025)
-* 🚧 **Fase 2:** Backend & AI Engine (En Progreso)
-* ⏳ **Fase 3:** Frontend MVP (Pendiente)
+* ✅ **Fase 2:** Backend & AI Engine (Completado - Issue #40)
+* 🚧 **Fase 3:** Frontend MVP (En Progreso)
 
 ---
 
