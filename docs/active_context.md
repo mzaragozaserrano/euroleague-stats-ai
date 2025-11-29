@@ -1,9 +1,9 @@
 # Active Context
 
 ## Current Focus
-**Issue #40: 2.6 Verification (MCP) - Configure Neon MCP in Cursor**
+**Issue #40: 2.6 Verification (MCP) - COMPLETADO ✅**
 
-Configurar Model Context Protocol (MCP) para Neon en Cursor a fin de validar queries antes de integrarlas en el Frontend. Establecer conexión MCP entre Cursor y Neon, permitir ejecución y validación de queries directamente desde el editor.
+Configuración de Model Context Protocol (MCP) para Neon en Cursor completada. Ahora nos enfocamos en Phase 3 Frontend.
 
 ## Recent Decisions & Achievements
 - **ETL Completed:** We have a robust, tested ETL pipeline running daily on GitHub Actions.
@@ -14,9 +14,10 @@ Configurar Model Context Protocol (MCP) para Neon en Cursor a fin de validar que
 - **Issue #32 Completed:** Text-to-SQL service with OpenRouter integration and prompt engineering.
 - **Issue #33 Completed:** Chat endpoint with full AI pipeline orchestration (RAG → SQL Gen → Execution).
 - **Issue #34 Completed:** BDD tests with 15 scenarios for SQL generation accuracy and validation.
+- **Issue #40 Completed:** MCP configuration for Neon in Cursor with verification queries and documentation.
 
 ## Active Problems / Blockers
-- **None currently.** Backend Phase 2 complete, moving to MCP verification and Frontend Phase 3.
+- **None currently.** Phase 2 (Backend & AI Engine) 100% complete. Ready for Phase 3 Frontend development.
 
 ## Completed in Issue #33
 1. **BDD Tests:** 12 scenarios en `chat_endpoint.feature` con step definitions.
@@ -37,8 +38,17 @@ Configurar Model Context Protocol (MCP) para Neon en Cursor a fin de validar que
 3. **SQL Safety:** Validación robusta de queries peligrosas.
 4. **Total Tests:** 68+ tests pasados (15 BDD + 53 unit tests).
 
+## Completed in Issue #40
+1. **MCP Configuration:** `.cursor/mcp.json` configurado con Neon connection settings.
+2. **Security Features:** Validación de SQL safety, timeout de 5s, límite de 1000 filas.
+3. **Verification Queries:** 10 queries de prueba en `backend/tests/mcp_verification_queries.sql`.
+4. **Documentation:** Guía completa de setup, uso y troubleshooting en README.md.
+5. **Features:** Solo operaciones SELECT/EXPLAIN permitidas, bloqueo de DROP/DELETE/UPDATE/INSERT/ALTER/CREATE.
+
 ## Next Steps (Immediate)
-1. **Issue #40 (MCP Verification):** Configurar Model Context Protocol para Neon en Cursor.
-2. **Phase 3 Frontend:** Implementar chat UI en Next.js que consuma /api/chat.
-3. **Schema Embeddings:** Generar embeddings iniciales de metadatos para RAG.
-4. **Performance Tuning:** Caché de queries frecuentes, optimización de prompts.
+1. **Phase 3 Frontend:** Implementar chat UI en Next.js que consuma /api/chat.
+   - Zustand store para gestión de estado
+   - UI components con Shadcn/ui
+   - Integración con backend API
+2. **Deployment:** Preparar deployment a Render
+3. **Performance Tuning:** Caché de queries frecuentes, optimización de prompts.

@@ -94,6 +94,83 @@ Este proyecto sigue una arquitectura dirigida por documentación. Para detalles 
 
 ---
 
+## 🛠️ MCP Setup (Model Context Protocol)
+
+### Descripción
+
+El protocolo MCP permite integrar herramientas externas directamente en Cursor para ejecutar y validar queries SQL contra la base de datos Neon sin dejar el editor. Esto mejora significativamente la experiencia del desarrollador (DX) permitiendo verificar la integridad de datos antes de integrar cambios en el Frontend.
+
+### Requisitos Previos
+
+- ✅ Cursor Editor (versión 0.40+)
+- ✅ Base de datos Neon configurada con `DATABASE_URL` válida
+- ✅ Node.js 16+ instalado en tu máquina
+
+### Configuración
+
+1. **Verificar `DATABASE_URL` en variables de entorno:**
+
+   ```bash
+   # En backend/.env
+   DATABASE_URL=postgresql+asyncpg://user:password@host/database
+   ```
+
+2. **Configuración automática en Cursor:**
+
+   El archivo `.cursor/mcp.json` ya está configurado. Cursor lo detectará automáticamente al reiniciar.
+
+   Para verificar que está activo:
+   - Abre Cursor
+   - Presiona `Cmd+Shift+P` (Mac) o `Ctrl+Shift+P` (Windows)
+   - Busca "MCP" o "Model Context Protocol"
+   - Deberías ver opciones para usar el servidor Neon
+
+### Uso
+
+Una vez configurado, puedes:
+
+1. **Ejecutar queries de prueba directamente en el editor:**
+   - Escribe una query SQL en un archivo temporal
+   - Usa el MCP para ejecutarla contra Neon sin salir de Cursor
+
+2. **Validar integridad de datos:**
+   ```sql
+   -- Ejemplo: Verificar que las estadísticas de un jugador sean coherentes
+   SELECT COUNT(*) as total_stats FROM player_stats_games
+   WHERE player_id = 123 AND points > 100;
+   ```
+
+3. **Verificar esquema:**
+   ```sql
+   -- Listar todas las tablas disponibles
+   SELECT table_name FROM information_schema.tables 
+   WHERE table_schema = 'public';
+   ```
+
+### Medidas de Seguridad
+
+- **Solo lectura:** El MCP solo permite operaciones `SELECT` y `EXPLAIN`
+- **Timeout:** Las queries tienen un límite de 5 segundos
+- **Validación:** Se valida automáticamente que no contengan keywords peligrosos (DROP, DELETE, UPDATE, INSERT, ALTER, CREATE)
+- **Límite de resultados:** Máximo 1,000 filas por query
+
+### Troubleshooting
+
+| Problema | Solución |
+|----------|----------|
+| MCP no aparece en Cursor | Reinicia Cursor y verifica que `.cursor/mcp.json` existe |
+| Error de conexión a Neon | Valida que `DATABASE_URL` es correcta y la red lo permite |
+| Query tarda demasiado | Reduce el rango de datos (agrega `LIMIT`) o revisa índices |
+| "Query blocked" | Verifica que solo uses SELECT; no están permitidas modificaciones |
+
+### Recursos
+
+- [Documentación oficial de MCP](https://modelcontextprotocol.io/)
+- [Neon Documentation](https://neon.tech/docs)
+- [Cursor MCP Integration Guide](https://docs.cursor.sh/)
+
+---
+
 ## Licencia
 
 Este proyecto está bajo la Licencia MIT. Consulta el archivo LICENSE para más detalles.
