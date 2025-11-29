@@ -1,42 +1,11 @@
 {
   "mcpServers": {
     "neon-database": {
-      "command": "node",
-      "args": ["-e", "require('mcp-postgres')"],
-      "env": {
-        "DATABASE_URL": "${process.env.DATABASE_URL}",
-        "MCP_LOG_LEVEL": "info"
-      },
-      "disabled": false,
-      "alwaysAllow": ["read_schema", "list_tables", "query_database"]
+      "command": "pwsh",
+      "args": [
+        "-File",
+        "${workspaceFolder}\\.cursor\\start-mcp.ps1"
+      ]
     }
-  },
-  "tools": {
-    "database": {
-      "enabled": true,
-      "description": "Execute SQL queries against Neon PostgreSQL for development verification",
-      "schema": {
-        "type": "object",
-        "properties": {
-          "query": {
-            "type": "string",
-            "description": "SQL query to execute (read-only operations only)"
-          },
-          "validation": {
-            "type": "boolean",
-            "description": "Enable SQL safety validation before execution"
-          }
-        },
-        "required": ["query"]
-      }
-    }
-  },
-  "settings": {
-    "queryTimeout": 5000,
-    "maxResultRows": 1000,
-    "validateSQLSafety": true,
-    "allowedOperations": ["SELECT", "WITH", "EXPLAIN"],
-    "blockedKeywords": ["DROP", "DELETE", "UPDATE", "INSERT", "ALTER", "CREATE"]
   }
 }
-
