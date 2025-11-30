@@ -27,27 +27,40 @@ import asyncio
 from typing import Any
 from pathlib import Path
 
+# CRITICO: Redirigir stdout/stderr ANTES de cualquier otra importación
+# para evitar que logs vayan a stdio y rompan el protocolo MCP
+_log_file = Path(__file__).parent.parent / "mcp_server.log"
+_log_file.parent.mkdir(exist_ok=True)
+
+# Guardar los descriptores originales por si acaso
+_original_stdout = sys.stdout
+_original_stderr = sys.stderr
+
 # Configurar logging hacia archivo en lugar de stderr para no interferir con MCP stdio
-log_file = Path(__file__).parent.parent / "mcp_server.log"
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    filename=str(log_file),
-    filemode='a'
+    filename=str(_log_file),
+    filemode='a',
+    force=True  # Force reconfiguration
 )
 logger = logging.getLogger(__name__)
 
 # Silenciar logs de SQLAlchemy y httpx que van a stderr
-logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
-logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("httpcore").setLevel(logging.WARNING)
+# CRITICO: Si estos logs van a stderr, pueden romper el protocolo MCP stdio
+logging.getLogger("sqlalchemy.engine").setLevel(logging.ERROR)
+logging.getLogger("sqlalchemy.pool").setLevel(logging.ERROR)
+logging.getLogger("httpx").setLevel(logging.ERROR)
+logging.getLogger("httpcore").setLevel(logging.ERROR)
 
 # Importar desde app
 try:
     from app.config import settings
-    from app.database import async_session_maker
     from app.services.text_to_sql import TextToSQLService
     from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import NullPool
 except ImportError as e:
     logger.error(f"Error importando módulos de app: {e}")
     sys.exit(1)
@@ -61,6 +74,18 @@ try:
 except ImportError as e:
     logger.error(f"MCP SDK no instalado o versión incompatible: {e}")
     sys.exit(1)
+
+# ============================================================================
+# DATABASE ENGINE PARA MCP (SIN ECHO)
+# ============================================================================
+# CRITICO: Crear engine sin echo para evitar que SQLAlchemy imprima a stderr
+# y rompa el protocolo MCP stdio
+_mcp_engine = create_async_engine(
+    settings.database_url, 
+    poolclass=NullPool,
+    echo=False,  # NUNCA usar echo=True en MCP server
+)
+_mcp_session_maker = sessionmaker(_mcp_engine, class_=AsyncSession, expire_on_commit=False)
 
 
 # ============================================================================
@@ -127,12 +152,12 @@ class TextToSQLMCPServer:
             else:
                 error_msg = f"Herramienta desconocida: {name}"
                 logger.error(error_msg)
-                return [TextContent(type="text", text=json.dumps({"error": error_msg}))]
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, ensure_ascii=False))]
 
     async def _list_tables(self):
         """Lista todas las tablas disponibles en la BD."""
         try:
-            async with async_session_maker() as session:
+            async with _mcp_session_maker() as session:
                 result = await session.execute(
                     text("""
                         SELECT table_name 
@@ -145,11 +170,12 @@ class TextToSQLMCPServer:
                 response_text = json.dumps(
                     {"tables": tables, "count": len(tables)},
                     indent=2,
+                    ensure_ascii=False
                 )
                 return [TextContent(type="text", text=response_text)]
         except Exception as e:
             logger.error(f"Error listando tablas: {e}")
-            return [TextContent(type="text", text=json.dumps({"error": str(e)}))]
+            return [TextContent(type="text", text=json.dumps({"error": str(e)}, ensure_ascii=False))]
 
     async def _handle_query(self, query: str):
         """Maneja una consulta: RAG → SQL Gen → Execution → Response."""
@@ -160,9 +186,9 @@ class TextToSQLMCPServer:
             if not settings.openrouter_api_key:
                 error_msg = "OPENROUTER_API_KEY no configurada"
                 logger.error(error_msg)
-                return [TextContent(type="text", text=json.dumps({"error": error_msg}))]
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}, ensure_ascii=False))]
 
-            async with async_session_maker() as session:
+            async with _mcp_session_maker() as session:
                 # Obtener contexto de esquema
                 logger.info("Obteniendo contexto de esquema...")
                 schema_context = await self._get_schema_context(session)
@@ -183,11 +209,11 @@ class TextToSQLMCPServer:
 
                 if sql_error:
                     logger.warning(f"Error en generación de SQL: {sql_error}")
-                    return [TextContent(type="text", text=json.dumps({"error": sql_error}))]
+                    return [TextContent(type="text", text=json.dumps({"error": sql_error}, ensure_ascii=False))]
 
                 if not sql:
                     logger.error("No se pudo generar SQL válido")
-                    return [TextContent(type="text", text=json.dumps({"error": "No se pudo generar SQL válido"}))]
+                    return [TextContent(type="text", text=json.dumps({"error": "No se pudo generar SQL válido"}, ensure_ascii=False))]
 
                 logger.info(f"SQL generado: {sql[:100]}...")
 
@@ -208,7 +234,7 @@ class TextToSQLMCPServer:
                         "row_count": len(data),
                     }
 
-                    response_text = json.dumps(response_data, indent=2, default=str)
+                    response_text = json.dumps(response_data, indent=2, default=str, ensure_ascii=False)
                     return [TextContent(type="text", text=response_text)]
 
                 except Exception as db_error:
@@ -217,11 +243,11 @@ class TextToSQLMCPServer:
                         "error": f"Error ejecutando consulta: {str(db_error)[:100]}",
                         "sql": sql,
                     }
-                    return [TextContent(type="text", text=json.dumps(error_response))]
+                    return [TextContent(type="text", text=json.dumps(error_response, ensure_ascii=False))]
 
         except Exception as e:
             logger.exception(f"Error no esperado en MCP: {e}")
-            return [TextContent(type="text", text=json.dumps({"error": f"Error interno: {str(e)[:100]}"}))]
+            return [TextContent(type="text", text=json.dumps({"error": f"Error interno: {str(e)[:100]}"}, ensure_ascii=False))]
 
     async def _get_schema_context(self, session) -> str:
         """Obtiene el contexto de esquema para el LLM."""
