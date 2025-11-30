@@ -111,13 +111,29 @@ Este proyecto sigue una arquitectura dirigida por documentación. Para detalles 
 
 ### Descripción
 
-El protocolo MCP permite usar el Agent de Cursor para ejecutar consultas SQL en lenguaje natural directamente contra Neon. Con MCP configurado, puedes hacer preguntas como **"Puntos por partido de Shane Larkin"** y Cursor ejecutará automáticamente la consulta SQL necesaria.
+El protocolo MCP permite usar el Agent de Cursor para ejecutar consultas en lenguaje natural contra la base de datos de Euroleague. Con MCP configurado, puedes hacer preguntas como **"Cuantos jugadores hay?"** o **"Puntos por partido de Shane Larkin"** y Cursor ejecutará automáticamente la conversión a SQL y recuperará los datos.
+
+**Arquitectura del Servidor MCP:**
+```
+Query Natural (español)
+     ↓
+Obtener Contexto de Esquema (RAG)
+     ↓
+Generar SQL con LLM (OpenRouter)
+     ↓
+Validar SQL (seguridad)
+     ↓
+Ejecutar contra PostgreSQL (Neon)
+     ↓
+Retornar JSON { sql, data, visualization }
+```
 
 ### Requisitos Previos
 
 - Cursor Editor (versión 0.40+)
-- Node.js 16+ instalado
-- `backend/.env` configurado con `DATABASE_URL`
+- Python 3.11+ instalado
+- Poetry instalado
+- `backend/.env` configurado con `DATABASE_URL` y `OPENROUTER_API_KEY`
 
 ### Configuración Rápida
 
@@ -129,72 +145,116 @@ El protocolo MCP permite usar el Agent de Cursor para ejecutar consultas SQL en 
    OPENAI_API_KEY=tu_clave_aqui
    ```
 
-2. **El archivo `.cursor/mcp.json` ya está configurado.**
-   - Cursor lo detectará automáticamente al reiniciar
+2. **Instala dependencias del backend:**
 
-3. **Reinicia Cursor completamente** (cierra y abre de nuevo)
+   ```bash
+   cd backend
+   poetry install
+   ```
+
+3. **El archivo `.cursor/mcp.json` ya está configurado.**
+   - Cursor lo detectará automáticamente al reiniciar
+   - Ejecuta: `poetry run python -m app.mcp_server`
+
+4. **Reinicia Cursor completamente** (cierra y abre de nuevo)
+
+### Herramientas Disponibles
+
+El servidor MCP expone tres herramientas principales:
+
+#### 1. `query_natural` - Consultas en lenguaje natural
+```
+@text-to-sql query_natural "Cuantos jugadores hay?"
+```
+**Respuesta:**
+```json
+{
+  "sql": "SELECT COUNT(*) as total FROM players;",
+  "data": [{"total": 245}],
+  "visualization": "table",
+  "row_count": 1
+}
+```
+
+#### 2. `count_players` - Contador rápido de jugadores
+```
+@text-to-sql count_players
+```
+
+#### 3. `list_tables` - Listar tablas disponibles
+```
+@text-to-sql list_tables
+```
 
 ### Cómo Usar MCP con Cursor Agent
 
-Una vez configurado, abre el chat de Cursor (Ctrl+K) y haz preguntas en lenguaje natural:
+Una vez configurado, usa el símbolo `@text-to-sql` en el chat de Cursor:
 
-**Ejemplo 1: Puntos por partido**
+**Ejemplo 1: Contar jugadores**
 ```
-Puntos por partido de Shane Larkin
-```
-
-**Ejemplo 2: Estadísticas agregadas**
-```
-Dame el promedio de puntos de todos los jugadores
+@text-to-sql query_natural "¿Cuantos jugadores hay en total?"
 ```
 
-**Ejemplo 3: Comparativas**
+**Ejemplo 2: Estadísticas de jugador**
 ```
-Compara los puntos y asistencias de Micic vs Larkin
+@text-to-sql query_natural "Dame los puntos de Shane Larkin"
+```
+
+**Ejemplo 3: Estadísticas agregadas**
+```
+@text-to-sql query_natural "Puntos por equipo ordenados descendente"
+```
+
+**Ejemplo 4: Comparativas**
+```
+@text-to-sql query_natural "Compara asistencias entre Micic y Larkin"
 ```
 
 Cursor automáticamente:
-1. Interpreta tu pregunta
-2. Usa MCP para acceder a la base de datos
-3. Ejecuta la consulta SQL correspondiente
-4. Muestra los resultados en el chat
-
-### Verificación Manual de Conexión
-
-Si necesitas verificar que MCP funciona correctamente, revisa `backend/tests/mcp_verification_queries.sql`:
-
-```sql
--- Health check
-SELECT current_database(), NOW();
-
--- Contar jugadores
-SELECT COUNT(*) as total_players FROM players;
-
--- Verificar embeddings
-SELECT COUNT(*) as total_embeddings FROM schema_embeddings;
-```
+1. Detecta la herramienta MCP invocada
+2. Envía la query al servidor MCP
+3. El servidor convierte a SQL usando IA
+4. Ejecuta contra Neon
+5. Muestra resultados en el chat
 
 ### Medidas de Seguridad
 
-- **Solo lectura:** MCP solo permite `SELECT` y `EXPLAIN`
-- **Timeout:** Máximo 5 segundos por consulta
-- **Bloqueadas:** DROP, DELETE, UPDATE, INSERT, ALTER, CREATE
-- **Límite:** Máximo 1,000 filas por consulta
+- **Solo lectura:** Solo se permiten consultas SELECT
+- **Validación de SQL:** Se rechazan operaciones DROP, DELETE, UPDATE, INSERT, ALTER, CREATE, GRANT, REVOKE
+- **Timeout:** Máximo 30 segundos por consulta
+- **Límite:** Máximo 1,000 filas por respuesta
+- **Parentesis balanceados:** Se valida sintaxis básica del SQL
 
 ### Troubleshooting
 
 | Problema | Solución |
 |----------|----------|
-| MCP no funciona | Reinicia Cursor; verifica que `DATABASE_URL` existe en `backend/.env` |
-| "Database connection failed" | Valida que `DATABASE_URL` usa `postgresql+asyncpg://` y termina con `?ssl=require` |
-| Cursor no ejecuta la consulta | Asegúrate de reiniciar Cursor después de configurar `.env` |
-| "Query blocked" | Solo se permiten SELECT; no puedes hacer modificaciones |
+| MCP no funciona | Reinicia Cursor; verifica que `backend/.env` esté configurado correctamente |
+| "DATABASE_URL no configurada" | Asegúrate de tener `backend/.env` con `DATABASE_URL` |
+| "OPENROUTER_API_KEY no configurada" | Configura tu clave de OpenRouter en `backend/.env` |
+| Error al generar SQL | Intenta ser más específico en tu pregunta natural |
+| Cursor no ejecuta | Verifica que Poetry y Python 3.11+ están instalados |
+
+**Para verificar el servidor MCP manualmente:**
+
+```bash
+cd backend
+poetry run python -m app.mcp_server
+```
+
+Deberías ver logs como:
+```
+INFO - Servidor MCP inicializado
+INFO - Iniciando servidor MCP Text-to-SQL...
+INFO - Servidor MCP ejecutándose en stdio
+```
 
 ### Recursos
 
 - [Documentación oficial de MCP](https://modelcontextprotocol.io/)
 - [Neon Documentation](https://neon.tech/docs)
 - [Cursor Documentation](https://docs.cursor.sh/)
+- [OpenRouter API](https://openrouter.ai/)
 
 ---
 

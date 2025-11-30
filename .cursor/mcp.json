@@ -1,12 +1,12 @@
 {
   "mcpServers": {
-    "neon-database": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-postgres",
-        "${env:DATABASE_URL}"
-      ]
+    "text-to-sql": {
+      "command": "poetry",
+      "args": ["run", "python", "-m", "app.mcp_server"],
+      "cwd": "${workspaceFolder}/backend",
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
     }
   }
 }
