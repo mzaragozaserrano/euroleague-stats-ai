@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 # Configuración de OpenRouter
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-OPENROUTER_MODEL = "meta-llama/llama-2-70b-chat"  # Modelo económico
+OPENROUTER_MODEL = "openai/gpt-3.5-turbo"  # Modelo rápido y económico
 
 
 class TextToSQLService:
@@ -139,6 +139,12 @@ Always respond with ONLY a JSON object. No explanation, no markdown, just JSON."
             # Construir mensajes para el LLM
             messages = []
             
+            # Agregar mensaje del sistema primero
+            messages.append({
+                "role": "system",
+                "content": self._get_system_prompt(schema_context),
+            })
+            
             # Agregar historial de conversacion si existe
             if conversation_history:
                 messages.extend(conversation_history)
@@ -154,7 +160,6 @@ Always respond with ONLY a JSON object. No explanation, no markdown, just JSON."
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                system=self._get_system_prompt(schema_context),
                 temperature=0.3,  # Bajo para consistencia
                 max_tokens=500,
                 timeout=30,  # Timeout de 30 segundos

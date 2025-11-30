@@ -1,12 +1,11 @@
 {
   "mcpServers": {
     "text-to-sql": {
-      "command": "poetry",
-      "args": ["run", "python", "-m", "app.mcp_server"],
-      "cwd": "${workspaceFolder}/backend",
-      "env": {
-        "PYTHONUNBUFFERED": "1"
-      }
+      "command": "cmd",
+      "args": [
+        "/c",
+        "cd backend && poetry run python run_mcp.py"
+      ]
     }
   }
 }

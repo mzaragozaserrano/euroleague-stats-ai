@@ -154,7 +154,7 @@ Retornar JSON { sql, data, visualization }
 
 3. **El archivo `.cursor/mcp.json` ya está configurado.**
    - Cursor lo detectará automáticamente al reiniciar
-   - Ejecuta: `poetry run python -m app.mcp_server`
+   - El servidor se ejecuta mediante `run_mcp.py` que carga las variables de entorno correctamente
 
 4. **Reinicia Cursor completamente** (cierra y abre de nuevo)
 
@@ -239,15 +239,10 @@ Cursor automáticamente:
 
 ```bash
 cd backend
-poetry run python -m app.mcp_server
+poetry run python run_mcp.py
 ```
 
-Deberías ver logs como:
-```
-INFO - Servidor MCP inicializado
-INFO - Iniciando servidor MCP Text-to-SQL...
-INFO - Servidor MCP ejecutándose en stdio
-```
+El servidor se iniciará y esperará conexiones vía stdio. Los logs se guardan en `backend/mcp_server.log`. Para detener el servidor, presiona `Ctrl+C`.
 
 ### Recursos
 

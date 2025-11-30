@@ -25,13 +25,22 @@ import json
 import logging
 import asyncio
 from typing import Any
+from pathlib import Path
 
-# Configurar logging
+# Configurar logging hacia archivo en lugar de stderr para no interferir con MCP stdio
+log_file = Path(__file__).parent.parent / "mcp_server.log"
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    filename=str(log_file),
+    filemode='a'
 )
 logger = logging.getLogger(__name__)
+
+# Silenciar logs de SQLAlchemy y httpx que van a stderr
+logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 # Importar desde app
 try:
@@ -47,7 +56,8 @@ except ImportError as e:
 try:
     import mcp.server.stdio
     from mcp.server import Server
-    from mcp.types import Tool, TextContent, CallToolResult
+    from mcp.server.models import InitializationOptions
+    from mcp.types import Tool, TextContent
 except ImportError as e:
     logger.error(f"MCP SDK no instalado o versión incompatible: {e}")
     sys.exit(1)
@@ -62,58 +72,84 @@ class TextToSQLMCPServer:
 
     def __init__(self):
         self.server = Server("text-to-sql")
-        self._register_tools()
+        self._register_handlers()
         logger.info("Servidor MCP inicializado")
 
-    def _register_tools(self):
-        """Registra las herramientas disponibles en MCP."""
+    def _register_handlers(self):
+        """Registra los manejadores de herramientas."""
+        
+        @self.server.list_tools()
+        async def list_tools():
+            """Lista todas las herramientas disponibles."""
+            logger.info("list_tools() invocado")
+            return [
+                Tool(
+                    name="query_natural",
+                    description="Ejecuta una consulta en lenguaje natural contra la BD de Euroleague",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "natural_query": {
+                                "type": "string",
+                                "description": "La pregunta en español (ej: 'Cuantos jugadores hay?')"
+                            }
+                        },
+                        "required": ["natural_query"]
+                    }
+                ),
+                Tool(
+                    name="count_players",
+                    description="Retorna el número total de jugadores en la BD",
+                    inputSchema={"type": "object", "properties": {}, "required": []}
+                ),
+                Tool(
+                    name="list_tables",
+                    description="Lista todas las tablas disponibles en la BD",
+                    inputSchema={"type": "object", "properties": {}, "required": []}
+                )
+            ]
         
         @self.server.call_tool()
-        async def query_natural(
-            natural_query: str,
-            **kwargs: Any,
-        ):
-            """
-            Ejecuta una consulta en lenguaje natural contra la BD.
+        async def call_tool(name: str, arguments: dict):
+            """Maneja las llamadas a herramientas."""
+            logger.info(f"Herramienta invocada: {name} con argumentos: {arguments}")
+            
+            if name == "query_natural":
+                natural_query = arguments.get("natural_query", "")
+                return await self._handle_query(natural_query)
+            
+            elif name == "count_players":
+                return await self._handle_query("Cuantos jugadores hay en total?")
+            
+            elif name == "list_tables":
+                return await self._list_tables()
+            
+            else:
+                error_msg = f"Herramienta desconocida: {name}"
+                logger.error(error_msg)
+                return [TextContent(type="text", text=json.dumps({"error": error_msg}))]
 
-            Argumentos:
-                natural_query: La pregunta en español (ej: "Cuantos jugadores hay?")
-
-            Retorna:
-                JSON con: sql (string), data (array), visualization (string)
-            """
-            logger.info(f"Query recibida: {natural_query}")
-            return await self._handle_query(natural_query)
-
-        @self.server.call_tool()
-        async def count_players(**kwargs: Any):
-            """Retorna el número total de jugadores en la BD."""
-            logger.info("Herramienta count_players invocada")
-            return await self._handle_query("Cuantos jugadores hay en total?")
-
-        @self.server.call_tool()
-        async def list_tables(**kwargs: Any):
-            """Lista todas las tablas disponibles en la BD."""
-            logger.info("Herramienta list_tables invocada")
+    async def _list_tables(self):
+        """Lista todas las tablas disponibles en la BD."""
+        try:
             async with async_session_maker() as session:
-                try:
-                    result = await session.execute(
-                        text("""
-                            SELECT table_name 
-                            FROM information_schema.tables 
-                            WHERE table_schema = 'public'
-                            ORDER BY table_name
-                        """)
-                    )
-                    tables = [row[0] for row in result.fetchall()]
-                    response_text = json.dumps(
-                        {"tables": tables, "count": len(tables)},
-                        indent=2,
-                    )
-                    return [TextContent(type="text", text=response_text)]
-                except Exception as e:
-                    logger.error(f"Error listando tablas: {e}")
-                    return [TextContent(type="text", text=json.dumps({"error": str(e)}))]
+                result = await session.execute(
+                    text("""
+                        SELECT table_name 
+                        FROM information_schema.tables 
+                        WHERE table_schema = 'public'
+                        ORDER BY table_name
+                    """)
+                )
+                tables = [row[0] for row in result.fetchall()]
+                response_text = json.dumps(
+                    {"tables": tables, "count": len(tables)},
+                    indent=2,
+                )
+                return [TextContent(type="text", text=response_text)]
+        except Exception as e:
+            logger.error(f"Error listando tablas: {e}")
+            return [TextContent(type="text", text=json.dumps({"error": str(e)}))]
 
     async def _handle_query(self, query: str):
         """Maneja una consulta: RAG → SQL Gen → Execution → Response."""
@@ -234,9 +270,31 @@ KEY RELATIONSHIPS:
     async def run(self):
         """Inicia el servidor MCP."""
         logger.info("Iniciando servidor MCP Text-to-SQL...")
-        async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
-            logger.info("Servidor MCP ejecutándose en stdio")
-            await self.server.run(read_stream, write_stream)
+        try:
+            async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
+                logger.info("Servidor MCP ejecutándose en stdio")
+                
+                # Crear opciones de inicialización con todos los campos requeridos
+                init_options = InitializationOptions(
+                    server_name="text-to-sql",
+                    server_version="1.0.0",
+                    capabilities={
+                        "tools": {}
+                    }
+                )
+                
+                try:
+                    await self.server.run(
+                        read_stream, 
+                        write_stream, 
+                        init_options
+                    )
+                except Exception as e:
+                    logger.error(f"Error en server.run(): {e}", exc_info=True)
+                    raise
+        except Exception as e:
+            logger.error(f"Error en stdio_server: {e}", exc_info=True)
+            raise
 
 
 # ============================================================================
