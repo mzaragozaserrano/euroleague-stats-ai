@@ -24,10 +24,12 @@
 - [x] **2.6 Verification - MCP (#40):** Configure Neon MCP in Cursor for query sanity-checking.
 
 ## Phase 3: Frontend MVP (NEXT UP 🚧)
-- [ ] Chat Interface (Zustand store, UI Components).
-- [ ] Data Visualizer (Recharts implementation for Bar/Line/Table).
-- [ ] Integration with Backend API.
-- [ ] Deployment to Render.
+- [x] **3.1 Zustand Store (#42):** Chat state management with localStorage persistence.
+- [x] **3.2 Chat UI Components (#43):** ChatContainer, ChatInput, MessageList, MessageBubble.
+- [x] **3.3 Data Visualizer (#44):** Recharts implementation for Bar/Line/Table charts.
+- [x] **3.4 API Integration (#47):** Frontend-to-Backend communication with error handling.
+- [ ] **3.5 Local Storage & UX (#45):** Enhanced persistence and UI improvements.
+- [ ] **3.6 Deployment (#46):** Deploy to Render with CI/CD pipeline.
 
 ## Phase 4: Post-MVP / Pro Features
 - [ ] Spatial SQL (PostGIS) for Shot Charts.
