@@ -1,4 +1,4 @@
-name: Daily ETL - Update Teams and Players
+name: Daily ETL - Update Teams, Players, and Statistics
 
 on:
   schedule:
@@ -39,7 +39,7 @@ jobs:
           poetry run python -m etl.ingest_teams
         continue-on-error: false
 
-      - name: Run ETL - Ingest Players
+      - name: Run ETL - Ingest Players (Roster)
         working-directory: ./backend
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -49,9 +49,16 @@ jobs:
           poetry run python -m etl.ingest_players
         continue-on-error: false
 
-      - name: Notify on failure
-        if: failure()
+      - name: Run ETL - Ingest Player Statistics (from euroleague_api)
+        working-directory: ./backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          echo "ETL failed. Check logs for details."
-          # Aquí podrías agregar notificación por email o Slack
+          poetry run python -m etl.ingest_player_stats
+        continue-on-error: false
+
+      - name: ETL Completed Successfully
+        run: |
+          echo "All ETL scripts executed successfully at $(date -u)"
+
 
