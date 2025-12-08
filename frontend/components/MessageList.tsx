@@ -28,7 +28,7 @@ export function MessageList({ messages, isLoading = false }: MessageListProps) {
             Haz una pregunta sobre estadísticas de la Euroliga y obtén respuestas instantáneas.
           </p>
           <p className="text-xs md:text-sm text-muted-foreground mt-4">
-            Ejemplos: "¿Cuántos puntos promedio anotó Micic?" o "Compara los triples de Larkin vs Poirier"
+            Ejemplos: &quot;¿Cuántos puntos promedio anotó Micic?&quot; o &quot;Compara los triples de Larkin vs Poirier&quot;
           </p>
         </div>
       </div>

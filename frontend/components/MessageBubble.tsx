@@ -31,9 +31,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             </p>
           </>
         ) : (
-          /* Assistant message (with visualization and metadata) */
           <div className="space-y-3">
-            {/* Error state */}
             {message.error && (
               <div className="mb-2 flex items-start gap-2 p-3 bg-destructive/10 rounded-lg border border-destructive/20">
                 <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-destructive" />
@@ -44,11 +42,9 @@ export function MessageBubble({ message }: MessageBubbleProps) {
               </div>
             )}
 
-            {/* Main content */}
             <p className="text-sm md:text-base break-words">{message.content}</p>
 
-            {/* Data Visualization */}
-            {message.data && message.visualization && (
+            {message.data !== undefined && message.visualization && (
               <div className="mt-4 w-full max-w-2xl">
                 <DataVisualizer
                   data={message.data}
@@ -57,7 +53,6 @@ export function MessageBubble({ message }: MessageBubbleProps) {
               </div>
             )}
 
-            {/* SQL query (collapsible) */}
             {message.sql && (
               <details className="mt-2 text-xs">
                 <summary className="cursor-pointer font-semibold hover:underline">
@@ -69,7 +64,6 @@ export function MessageBubble({ message }: MessageBubbleProps) {
               </details>
             )}
 
-            {/* Timestamp */}
             <p className="text-xs opacity-70">
               {new Date(message.timestamp).toLocaleTimeString('es-ES', {
                 hour: '2-digit',
