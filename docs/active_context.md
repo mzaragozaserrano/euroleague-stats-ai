@@ -1,9 +1,9 @@
 # Active Context
 
 ## Current Focus
-**#44: 3.3 Data Visualizer - Recharts Integration** (EN PROGRESO)
+**#47: 3.4 Frontend - API Integration** (EN PROGRESO)
 
-Implementar visualizaciones dinámicas (Bar Chart, Line Chart, Table) usando Recharts según el tipo de respuesta del backend.
+Conectar el frontend con el endpoint /api/chat del backend, manejando errores y estados de carga.
 
 ## Recent Decisions & Achievements
 - **ETL Completed:** We have a robust, tested ETL pipeline running daily on GitHub Actions.
@@ -66,7 +66,7 @@ Implementar visualizaciones dinámicas (Bar Chart, Line Chart, Table) usando Rec
 2. **Mobile-First Design:** Todos los componentes responsivos usando Tailwind CSS.
 3. **Zustand Integration:** Gestión de estado centralizada desde los componentes.
 
-## In Progress - Issue #44
+## Completed in Issue #44
 1. **DataVisualizer Component:** Componente principal que renderiza visualizaciones dinámicas.
    - Soporta 3 tipos: BarChart, LineChart, DataTable
    - Auto-detección de columnas numéricas y categóricas
@@ -79,6 +79,13 @@ Implementar visualizaciones dinámicas (Bar Chart, Line Chart, Table) usando Rec
    - Cobertura completa: BarChart, LineChart, DataTable, edge cases
    - Responsive, special characters, múltiples columnas
 4. **Documentation:** README completo con ejemplos de uso, props, casos edge.
+
+## In Progress - Issue #47
+1. **API Service:** Crear `frontend/lib/api.ts` con función `sendChatMessage()`.
+2. **Environment Configuration:** Configurar URL del backend con variable de entorno `NEXT_PUBLIC_API_URL`.
+3. **Error Handling:** Manejo robusto de errores (timeout, rate limits, LLM errors).
+4. **Integration:** Conectar servicio con ChatStore y componentes UI.
+5. **Status Messages:** Mostrar "Despertando al Agente..." para cold starts (>3s).
 
 ## Next Steps (Immediate)
 1. **Phase 3 Frontend (En Progreso):** 
