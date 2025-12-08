@@ -70,7 +70,10 @@ class EuroleagueClient:
     """
 
     # URL base de la API de Euroleague
-    BASE_URL = "https://api-live.euroleague.net"
+    # NOTA: La API pública de Euroleague no está disponible actualmente
+    # Se intentó: api-live.euroleague.net (404), live.euroleague.net/api (404 en endpoints)
+    # TODO: Investigar API oficial o usar scraping alternativo
+    BASE_URL = "https://live.euroleague.net/api"
 
     # Endpoints principales
     # NOTA: La API puede no soportar v3, probar sin versión o con v2
