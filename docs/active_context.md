@@ -1,9 +1,14 @@
 # Active Context
 
 ## Current Focus
-**Issue #40: 2.6 Verification (MCP) - COMPLETADO ✅**
+**#42: 3.1 Chat Interface - Store & State Management (EN PROGRESO)**
 
-Configuración de Model Context Protocol (MCP) para Neon en Cursor completada. Ahora nos enfocamos en Phase 3 Frontend.
+Implementando Zustand store para gestionar el estado del chat (mensajes, historial, estados de carga).
+- **#43:** 3.2 Chat Interface - UI Components
+- **#44:** 3.3 Data Visualizer - Recharts Integration
+- **#47:** 3.4 Frontend - API Integration
+- **#45:** 3.5 Frontend - Persistence & UX Enhancements
+- **#46:** 3.6 Deployment - Render Setup
 
 ## Recent Decisions & Achievements
 - **ETL Completed:** We have a robust, tested ETL pipeline running daily on GitHub Actions.
@@ -17,7 +22,7 @@ Configuración de Model Context Protocol (MCP) para Neon en Cursor completada. A
 - **Issue #40 Completed:** MCP configuration for Neon in Cursor with verification queries and documentation.
 
 ## Active Problems / Blockers
-- **None currently.** Phase 2 (Backend & AI Engine) 100% complete. Ready for Phase 3 Frontend development.
+- **None currently.** Phase 2 (Backend & AI Engine) 100% complete. Phase 3 Frontend development iniciada.
 
 ## Completed in Issue #33
 1. **BDD Tests:** 12 scenarios en `chat_endpoint.feature` con step definitions.
@@ -46,9 +51,11 @@ Configuración de Model Context Protocol (MCP) para Neon en Cursor completada. A
 5. **Features:** Solo operaciones SELECT/EXPLAIN permitidas, bloqueo de DROP/DELETE/UPDATE/INSERT/ALTER/CREATE.
 
 ## Next Steps (Immediate)
-1. **Phase 3 Frontend:** Implementar chat UI en Next.js que consuma /api/chat.
-   - Zustand store para gestión de estado
-   - UI components con Shadcn/ui
-   - Integración con backend API
-2. **Deployment:** Preparar deployment a Render
-3. **Performance Tuning:** Caché de queries frecuentes, optimización de prompts.
+1. **Phase 3 Frontend (En Progreso):** 
+   - **#42:** Implementar Zustand store para gestión de estado del chat
+   - **#43:** Crear componentes UI del chat con shadcn/ui (mobile-first)
+   - **#44:** Implementar visualizaciones dinámicas con Recharts (Bar/Line/Table)
+   - **#47:** Conectar frontend con backend `/api/chat` y manejo de errores
+   - **#45:** Persistencia en localStorage y mejoras de UX
+   - **#46:** Configurar deployment en Render
+2. **Performance Tuning:** Caché de queries frecuentes, optimización de prompts (futuro).
