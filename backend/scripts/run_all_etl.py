@@ -1,6 +1,10 @@
 """
 Script helper para ejecutar todos los ETLs en secuencia.
 
+Ejecución de ETL simplificada:
+- Equipos (base)
+- Jugadores (requiere equipos)
+
 Uso:
     poetry run python scripts/run_all_etl.py
 """
@@ -15,7 +19,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from etl.ingest_teams import ingest_teams
 from etl.ingest_players import ingest_players
-from etl.ingest_games import ingest_games, ingest_player_stats
 
 # Configurar logging
 logging.basicConfig(
@@ -50,25 +53,13 @@ async def run_all_etl():
         players_result = await ingest_players()
         results["players"] = players_result
         
-        if players_result.get("status") != "success":
-            logger.warning("Fallo en ingesta de jugadores. Continuando con partidos...")
-        
-        # 3. Partidos
+        # 3. Estadísticas de jugadores (DESHABILITADO - Se obtienen en tiempo real)
         logger.info("=" * 60)
-        logger.info("PASO 3: Ingestando partidos...")
+        logger.info("PASO 3: Estadísticas de jugadores (DESHABILITADO)")
         logger.info("=" * 60)
-        games_result = await ingest_games()
-        results["games"] = games_result
-        
-        if games_result.get("status") != "success":
-            logger.warning("Fallo en ingesta de partidos. Continuando con estadísticas...")
-        
-        # 4. Estadísticas de jugadores
-        logger.info("=" * 60)
-        logger.info("PASO 4: Ingestando estadísticas de jugadores...")
-        logger.info("=" * 60)
-        stats_result = await ingest_player_stats()
-        results["player_stats"] = stats_result
+        logger.info("Las estadísticas se obtienen en tiempo real via PlayerStatsService")
+        logger.info("Ver: backend/app/services/player_stats_service.py")
+        results["player_stats"] = {"status": "disabled_for_mvp", "message": "Stats en tiempo real"}
         
         # Resumen final
         logger.info("=" * 60)

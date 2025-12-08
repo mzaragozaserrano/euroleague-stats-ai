@@ -6,7 +6,7 @@ Este directorio contiene los scripts ETL para ingerir datos desde la API de Euro
 
 1. **`ingest_teams.py`** - Ingesta de equipos
 2. **`ingest_players.py`** - Ingesta de jugadores
-3. **`ingest_games.py`** - Ingesta de partidos y estadísticas de jugadores
+3. **`ingest_games.py`** - Ingesta de estadísticas de jugadores (nota: solo para MVP, sin partidos)
 
 ## Prerrequisitos
 
@@ -32,9 +32,6 @@ poetry run python -m etl.ingest_teams
 
 # 2. Ingestar jugadores (requiere equipos)
 poetry run python -m etl.ingest_players
-
-# 3. Ingestar partidos (requiere equipos y jugadores)
-poetry run python -m etl.ingest_games
 ```
 
 ### Opción 2: Ejecutar todos los ETLs en secuencia
@@ -42,10 +39,8 @@ poetry run python -m etl.ingest_games
 ```bash
 cd backend
 
-# Script completo (equipos → jugadores → partidos → estadísticas)
-poetry run python -m etl.ingest_teams && \
-poetry run python -m etl.ingest_players && \
-poetry run python -m etl.ingest_games
+# Script completo (equipos → jugadores → estadísticas)
+poetry run python scripts/run_all_etl.py
 ```
 
 ### Opción 3: Usar Python interactivo
@@ -54,7 +49,7 @@ poetry run python -m etl.ingest_games
 import asyncio
 from etl.ingest_teams import ingest_teams
 from etl.ingest_players import ingest_players
-from etl.ingest_games import ingest_games, ingest_player_stats
+from etl.ingest_games import ingest_player_stats
 
 async def run_all_etl():
     # 1. Equipos
@@ -67,12 +62,7 @@ async def run_all_etl():
     players_result = await ingest_players()
     print(f"Jugadores: {players_result}")
     
-    # 3. Partidos
-    print("Ingestando partidos...")
-    games_result = await ingest_games()
-    print(f"Partidos: {games_result}")
-    
-    # 4. Estadísticas de jugadores
+    # 3. Estadísticas de jugadores
     print("Ingestando estadísticas...")
     stats_result = await ingest_player_stats()
     print(f"Estadísticas: {stats_result}")
@@ -87,21 +77,15 @@ asyncio.run(run_all_etl())
 
 1. ✅ **Equipos** (sin dependencias)
 2. ✅ **Jugadores** (requiere equipos)
-3. ✅ **Partidos** (requiere equipos)
-4. ✅ **Estadísticas de Jugadores** (requiere partidos, jugadores y equipos)
+3. ✅ **Estadísticas de Jugadores** (requiere jugadores)
 
 ## Parámetros Opcionales
 
-Los scripts aceptan parámetros opcionales para filtrar por temporada o jornada:
+Los scripts aceptan parámetros opcionales para filtrar por temporada:
 
 ```python
 # Filtrar por temporada
 await ingest_players(season=2023)
-await ingest_games(season=2023)
-
-# Filtrar por temporada y jornada
-await ingest_games(season=2023, round_=1)
-await ingest_player_stats(season=2023, round_=1)
 ```
 
 ## Verificación
@@ -114,23 +98,13 @@ SELECT COUNT(*) FROM teams;
 
 -- Verificar jugadores
 SELECT COUNT(*) FROM players;
-
--- Verificar partidos
-SELECT COUNT(*) FROM games;
-
--- Verificar estadísticas
-SELECT COUNT(*) FROM player_stats_games;
 ```
 
 ## Troubleshooting
 
 ### Error: "Team does not exist"
-- **Causa:** Se intentó ingestar jugadores o partidos antes de equipos
+- **Causa:** Se intentó ingestar jugadores antes de equipos
 - **Solución:** Ejecutar `ingest_teams.py` primero
-
-### Error: "Player does not exist"
-- **Causa:** Se intentó ingestar estadísticas antes de jugadores
-- **Solución:** Ejecutar `ingest_players.py` antes de `ingest_player_stats()`
 
 ### Error: "Connection timeout"
 - **Causa:** Problemas de conexión con Neon o la API

@@ -74,7 +74,7 @@ async def _get_schema_context(session: AsyncSession) -> str:
 TABLES:
 - teams (id, code, name, logo_url): Equipos de Euroleague.
 - players (id, team_id, name, position): Jugadores y su equipo.
-- games (id, season, round, home_team_id, away_team_id, date, home_score, away_score): Partidos jugados.
+- games (id, season, round, home_team_id, away_team_id, date, home_score, away_score): Partidos jugados. SEASON values are integers: 2023, 2024, 2025.
 - player_stats_games (id, game_id, player_id, team_id, minutes, points, rebounds_total, assists, fg3_made, pir): Estadisticas de jugador por partido.
 
 KEY RELATIONSHIPS:
@@ -82,6 +82,8 @@ KEY RELATIONSHIPS:
 - player_stats_games.game_id -> games.id
 - players.team_id -> teams.id
 - games.home_team_id, away_team_id -> teams.id
+
+IMPORTANT - Season values are always INTEGERS (2023, 2024, 2025), NEVER strings like 'current'.
 """
         
         context = "SCHEMA METADATA FROM RAG:\n"
@@ -98,9 +100,10 @@ KEY RELATIONSHIPS:
 TABLES:
 - teams (id, code, name, logo_url)
 - players (id, team_id, name, position)
-- games (id, season, round, home_team_id, away_team_id, date, home_score, away_score)
+- games (id, season, round, home_team_id, away_team_id, date, home_score, away_score) - Season is INTEGER: 2023, 2024, 2025
 - player_stats_games (id, game_id, player_id, team_id, minutes, points, rebounds_total, assists, fg3_made, pir)
-"""
+
+CRITICAL: Season values are always INTEGERS, NEVER strings like 'current'."""
 
 
 async def _execute_sql(session: AsyncSession, sql: str) -> List[Dict[str, Any]]:
@@ -177,30 +180,40 @@ async def chat_endpoint(
         logger.info(f"Contexto de esquema obtenido ({len(schema_context)} chars)")
         
         # ====================================================================
-        # PASO 2: Generar SQL usando LLM
+        # PASO 2: Generar SQL o obtener stats directamente
         # ====================================================================
-        logger.info("Paso 2: Generando SQL con OpenRouter...")
+        logger.info("Paso 2: Procesando consulta...")
         text_to_sql_service = TextToSQLService(api_key=settings.openrouter_api_key)
         
-        sql, visualization, sql_error = await text_to_sql_service.generate_sql_with_fallback(
+        sql, visualization, sql_error, direct_data = await text_to_sql_service.generate_sql_with_fallback(
             query=request.query,
             schema_context=schema_context,
             conversation_history=request.history,
         )
         
         if sql_error:
-            logger.warning(f"Error en generación de SQL: {sql_error}")
+            logger.warning(f"Error en procesamiento: {sql_error}")
             return ChatResponse(error=sql_error)
         
+        # ====================================================================
+        # PASO 3A: Si hay datos directos (stats), retornarlos sin SQL
+        # ====================================================================
+        if direct_data is not None:
+            logger.info(f"Datos directos obtenidos (stats): {len(direct_data)} registros")
+            return ChatResponse(
+                sql=None,  # No hay SQL, se obtuvo de API
+                data=direct_data,
+                visualization=visualization or "table",
+            )
+        
+        # ====================================================================
+        # PASO 3B: Si hay SQL, ejecutarlo contra BD
+        # ====================================================================
         if not sql:
-            logger.error("No se pudo generar SQL válido")
+            logger.error("No se pudo generar SQL ni obtener datos directos")
             return ChatResponse(error="No se pudo procesar tu consulta. Intenta ser más específico.")
         
         logger.info(f"SQL generado: {sql[:80]}...")
-        
-        # ====================================================================
-        # PASO 3: Ejecutar SQL contra BD
-        # ====================================================================
         logger.info("Paso 3: Ejecutando SQL contra la BD...")
         try:
             data = await _execute_sql(session, sql)

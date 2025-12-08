@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { ChatInput } from './ChatInput';
 import { MessageList } from './MessageList';
+import { InitCheck } from './InitCheck';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, Clock, Trash2 } from 'lucide-react';
@@ -14,6 +15,7 @@ export interface ChatContainerProps {
 
 export function ChatContainer({ onSendMessage }: ChatContainerProps) {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const messages = useChatStore((state) => state.messages);
   const isLoading = useChatStore((state) => state.isLoading);
   const error = useChatStore((state) => state.error);
@@ -41,6 +43,11 @@ export function ChatContainer({ onSendMessage }: ChatContainerProps) {
 
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-950 dark:to-slate-900">
+      {/* Init Check Overlay */}
+      {!isInitialized && (
+        <InitCheck onReady={() => setIsInitialized(true)} />
+      )}
+
       {/* Header - Refined */}
       <header className="border-b border-slate-200/50 dark:border-slate-700/50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm px-4 py-4 md:px-6 md:py-5 shadow-sm">
         <div className="max-w-5xl mx-auto flex items-center justify-between">

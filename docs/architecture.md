@@ -23,32 +23,76 @@ root/
 ```
 
 ## 3. Data Model (Schema)
-*Key Tables implemented in Phase 1:*
+*IMPORTANTE: La BD solo almacena METADATOS (códigos). Los datos reales vienen de la API de Euroleague.*
+
+### Tablas Activas:
 
 - **`teams`**: `id`, `code`, `name`, `logo_url`.
-- **`players`**: `id`, `team_id`, `name`, `position`.
-- **`games`**: `id`, `season`, `round`, `home_team_id`, `away_team_id`, `scores`.
-- **`player_stats_games`** (Fact Table): Granular box scores per player per game.
-    - Metrics: `points`, `rebounds`, `assists`, `fg3_made`, `pir`, etc.
-    - Constraints: Unique(`game_id`, `player_id`).
-- **`schema_embeddings`**:
-    - `content`: Text description of tables/columns.
-    - `embedding`: Vector representation (1536 dim).
-    - *Purpose:* RAG retrieval to find relevant schema for SQL generation.
+  - **Propósito:** Almacenar códigos de equipos para llamadas a API.
+  - **Actualización:** Diaria (7 AM) vía ETL automático.
 
-## 4. AI Pipeline (Text-to-SQL)
-1.  **Input:** User Query ("Puntos de Larkin vs Micic").
-2.  **Schema Retrieval (RAG):**
-    - Vectorize Query -> Search `schema_embeddings` table.
-    - *Constraint:* DO NOT vectorise row data (stats), ONLY schema metadata.
-3.  **Prompt Construction:** Inject retrieved schema + few-shot SQL examples.
-4.  **Generation:** LLM produces JSON `{ sql, visualization_type }`.
-5.  **Execution:** Run SQL on Neon (Read-Only user).
+- **`players`**: `id`, `player_code`, `team_id`, `name`, `position`.
+  - **Propósito:** Almacenar códigos de jugadores para llamadas a API.
+  - **Campo clave:** `player_code` (código de Euroleague API).
+  - **Actualización:** Diaria (7 AM) vía ETL automático.
+
+- **`schema_embeddings`**:
+  - `content`: Text description of tables/columns.
+  - `embedding`: Vector representation (1536 dim).
+  - *Purpose:* RAG retrieval to find relevant schema for SQL generation.
+
+### Tablas Deprecadas (Nueva Arquitectura):
+
+- ~~`games`~~ - Los datos de partidos vienen de la API
+- ~~`player_stats_games`~~ - Las estadísticas vienen de la API
+
+### Caché Frontend (localStorage):
+
+- **`player-stats-cache`**: Estadísticas de jugadores por temporada.
+  - Estructura: `{ "E2024": { data: [], timestamp, lastSync }, "E2025": {...} }`
+  - Invalidación: Automática después de las 7 AM.
+  - Tamaño: ~5-10 MB (solo temporadas activas).
+
+## 4. Flujo de Datos (Nueva Arquitectura)
+
+### Flujo Principal:
+```
+Usuario → Frontend (caché check) → API Euroleague → Visualización
+         ↓ (solo para códigos)
+         Backend (Text-to-SQL) → BD (códigos)
+```
+
+### Pasos Detallados:
+
+1. **Input:** User Query ("Top 10 anotadores").
+2. **Query Classification (Frontend):**
+   - Detectar tipo: `top_players`, `player_lookup`, `team_roster`, `comparison`, `general`.
+3. **Caché Check (Frontend):**
+   - Verificar `PlayerStatsCache.getSeasonStats('E2025')`.
+   - Si existe → usar caché (latencia: 0 ms).
+4. **API Call (si no hay caché):**
+   - Llamar `EuroleagueApi.getPlayerStats('E2025')`.
+   - Guardar en caché para futuras consultas.
+5. **Filtrado/Ordenamiento (Frontend):**
+   - Aplicar lógica según la consulta (top N, filtro por equipo, etc.).
+6. **Visualización:**
+   - Renderizar con `DataVisualizer` (BarChart, LineChart, Table).
+
+### Uso de Backend (Text-to-SQL):
+
+**Solo para obtener códigos de equipos/jugadores:**
+- Query: "Jugadores del Real Madrid"
+- SQL: `SELECT code FROM teams WHERE name ILIKE '%Real Madrid%'`
+- Retorna: `{ code: "RM" }`
+- Frontend usa `RM` para filtrar stats de la API.
 
 ## 5. Critical Constraints
 - **Neon Serverless:** MUST use `poolclass=NullPool` in SQLAlchemy engine.
 - **Embeddings:** Use API-based embeddings to save RAM on Render.
-- **ETL:** Daily Cron via GitHub Actions (Cost: $0).
+- **ETL:** Daily Cron via GitHub Actions at 7 AM UTC (Cost: $0).
+- **Caché Frontend:** Invalidación automática después de las 7 AM.
+- **localStorage Limit:** 5-10 MB (solo cachear temporadas activas: E2024, E2025).
+- **API Euroleague:** Fuente única de verdad para estadísticas de jugadores.
 
 ## 6. Testing Strategy
 - **Framework:** `pytest-bdd` + `pytest-asyncio`.

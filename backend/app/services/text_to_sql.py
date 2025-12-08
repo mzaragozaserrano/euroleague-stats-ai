@@ -2,6 +2,7 @@
 Servicio Text-to-SQL con OpenRouter.
 
 Convierte consultas naturales en SQL válido usando LLM con validación de seguridad.
+Detecta consultas de estadísticas de jugadores y usa PlayerStatsService con caché.
 """
 
 import re
@@ -10,6 +11,8 @@ import json
 from typing import Optional, List, Dict, Any, Tuple
 from openai import AsyncOpenAI
 import httpx
+
+from app.services.player_stats_service import PlayerStatsService, PlayerStatsServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +38,93 @@ class TextToSQLService:
             base_url=OPENROUTER_BASE_URL,
         )
         self.model = OPENROUTER_MODEL
+        self.player_stats_service = PlayerStatsService()
+    
+    @staticmethod
+    def _requires_player_stats(query: str) -> bool:
+        """
+        Detecta si la consulta requiere estadísticas de jugadores en tiempo real.
+        
+        Args:
+            query: Consulta del usuario
+            
+        Returns:
+            True si requiere stats de jugadores
+        """
+        query_lower = query.lower()
+        
+        # Keywords que indican consulta de stats
+        stats_keywords = [
+            "anotador", "reboteador", "asistente", "máximo", "top", "mejor",
+            "estadística", "puntos", "rebotes", "asistencias", "triples",
+            "scorer", "rebounder", "assists", "stats", "statistics",
+            "temporada", "season", "jornada", "round"
+        ]
+        
+        return any(keyword in query_lower for keyword in stats_keywords)
+    
+    async def _extract_stats_params(self, query: str) -> Dict[str, Any]:
+        """
+        Extrae parámetros para consulta de stats usando LLM.
+        
+        Args:
+            query: Consulta del usuario
+            
+        Returns:
+            Diccionario con parámetros: seasoncode, stat, top_n, team_code
+        """
+        extraction_prompt = f"""Extract parameters from this basketball stats query:
+Query: "{query}"
+
+Return ONLY a JSON object with these fields:
+- seasoncode: "E2025" (default), "E2024", etc. If user says "esta temporada" or "current" use "E2025"
+- stat: "points", "rebounds_total", "assists", "steals", "blocks", etc
+- top_n: number of players to return (default 10)
+- team_code: team code if mentioned (optional, can be null)
+
+Examples:
+"Top 10 anotadores 2025" -> {{"seasoncode": "E2025", "stat": "points", "top_n": 10, "team_code": null}}
+"Mejores reboteadores del Real Madrid" -> {{"seasoncode": "E2025", "stat": "rebounds_total", "top_n": 10, "team_code": "RM"}}
+"5 mejores asistentes temporada 2024" -> {{"seasoncode": "E2024", "stat": "assists", "top_n": 5, "team_code": null}}
+
+Return ONLY the JSON, no explanation."""
+
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": extraction_prompt}],
+                temperature=0.1,
+                max_tokens=200,
+                timeout=15,
+            )
+            
+            response_text = response.choices[0].message.content.strip()
+            
+            # Extraer JSON
+            json_match = re.search(r"\{.*\}", response_text, re.DOTALL)
+            if json_match:
+                response_text = json_match.group(0)
+            
+            params = json.loads(response_text)
+            
+            # Valores por defecto
+            params.setdefault("seasoncode", "E2025")
+            params.setdefault("stat", "points")
+            params.setdefault("top_n", 10)
+            params.setdefault("team_code", None)
+            
+            logger.info(f"Parámetros extraídos: {params}")
+            return params
+            
+        except Exception as e:
+            logger.error(f"Error extrayendo parámetros: {e}")
+            # Retornar defaults
+            return {
+                "seasoncode": "E2025",
+                "stat": "points",
+                "top_n": 10,
+                "team_code": None
+            }
 
     @staticmethod
     def _get_system_prompt(schema_context: str) -> str:
@@ -53,7 +143,16 @@ Your task is to convert natural language queries into accurate PostgreSQL querie
 AVAILABLE SCHEMA:
 {schema_context}
 
-RULES:
+** CRITICAL - SEASON VALUES **
+The database ONLY contains data for seasons: 2023, 2024, 2025
+- NEVER use season = 2022, 2021, 2020, or any other year
+- NEVER use season as a string like season = '2022'
+- ALWAYS use integer season values: 2023, 2024, 2025
+- When user says "esta temporada" or "this season" or "current": Use season IN (2024, 2025)
+- When user says specific year 2025: Use season = 2025
+- When user says all seasons: Either remove WHERE season clause OR use season IN (2023, 2024, 2025)
+
+GENERAL RULES:
 1. You MUST return ONLY a JSON object with "sql" and "visualization_type" keys.
 2. The "sql" field must contain a valid PostgreSQL SELECT query.
 3. The "visualization_type" must be one of: 'table', 'bar', 'line', 'scatter'.
@@ -63,19 +162,32 @@ RULES:
 7. Order results by most relevant column descending.
 
 FEW-SHOT EXAMPLES:
+
 Query: "puntos de Larkin"
 {{
   "sql": "SELECT p.name, ps.points FROM players p JOIN player_stats_games ps ON p.id = ps.player_id WHERE p.name ILIKE '%Larkin%' ORDER BY ps.points DESC LIMIT 10;",
   "visualization_type": "table"
 }}
 
-Query: "puntos por equipo"
+Query: "máximo anotador"
 {{
-  "sql": "SELECT t.name, SUM(ps.points) as total_points FROM teams t JOIN players p ON t.id = p.team_id JOIN player_stats_games ps ON p.id = ps.player_id GROUP BY t.id, t.name ORDER BY total_points DESC;",
+  "sql": "SELECT p.name, SUM(ps.points) as total_points FROM players p JOIN player_stats_games ps ON p.id = ps.player_id JOIN games g ON ps.game_id = g.id GROUP BY p.id, p.name ORDER BY total_points DESC LIMIT 1;",
+  "visualization_type": "table"
+}}
+
+Query: "máximo anotador de esta temporada"
+{{
+  "sql": "SELECT p.name, SUM(ps.points) as total_points FROM players p JOIN player_stats_games ps ON p.id = ps.player_id JOIN games g ON ps.game_id = g.id WHERE g.season IN (2024, 2025) GROUP BY p.id, p.name ORDER BY total_points DESC LIMIT 1;",
+  "visualization_type": "table"
+}}
+
+Query: "puntos por equipo esta temporada"
+{{
+  "sql": "SELECT t.name, SUM(ps.points) as total_points FROM teams t JOIN players p ON t.id = p.team_id JOIN player_stats_games ps ON p.id = ps.player_id JOIN games g ON ps.game_id = g.id WHERE g.season IN (2024, 2025) GROUP BY t.id, t.name ORDER BY total_points DESC;",
   "visualization_type": "bar"
 }}
 
-Query: "comparación de asistencias entre Larkin y Micic"
+Query: "comparaci$([char]0x00F3)n de asistencias entre Larkin y Micic"
 {{
   "sql": "SELECT p.name, SUM(ps.assists) as total_assists FROM players p JOIN player_stats_games ps ON p.id = ps.player_id WHERE p.name ILIKE '%Larkin%' OR p.name ILIKE '%Micic%' GROUP BY p.id, p.name ORDER BY total_assists DESC;",
   "visualization_type": "bar"
@@ -120,9 +232,12 @@ Always respond with ONLY a JSON object. No explanation, no markdown, just JSON."
         query: str,
         schema_context: str,
         conversation_history: Optional[List[Dict[str, str]]] = None,
-    ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    ) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[List[Dict[str, Any]]]]:
         """
         Genera SQL a partir de una consulta natural.
+        
+        Detecta si la consulta requiere stats de jugadores y usa PlayerStatsService.
+        Si no, genera SQL normal.
 
         Args:
             query: Consulta natural del usuario.
@@ -130,11 +245,41 @@ Always respond with ONLY a JSON object. No explanation, no markdown, just JSON."
             conversation_history: Historial de conversacion previo.
 
         Returns:
-            Tupla (sql, visualization_type, error_message).
-            Si hay error, sql será None.
+            Tupla (sql, visualization_type, error_message, direct_data).
+            - Si es consulta de stats: sql=None, direct_data contiene resultados
+            - Si es SQL normal: direct_data=None, sql contiene query
+            Si hay error, sql y direct_data serán None.
         """
         try:
             logger.info(f"Generando SQL para query: {query}")
+            
+            # DETECTAR SI REQUIERE STATS DE JUGADORES
+            if self._requires_player_stats(query):
+                logger.info("Consulta detectada como stats de jugadores. Usando PlayerStatsService...")
+                
+                try:
+                    # Extraer parámetros
+                    params = await self._extract_stats_params(query)
+                    
+                    # Obtener stats usando el servicio
+                    results = await self.player_stats_service.search_top_players(
+                        seasoncode=params["seasoncode"],
+                        stat=params["stat"],
+                        top_n=params["top_n"],
+                        team_code=params["team_code"]
+                    )
+                    
+                    logger.info(f"Stats obtenidas: {len(results)} jugadores")
+                    
+                    # Retornar datos directos (sin SQL)
+                    return None, "table", None, results
+                    
+                except PlayerStatsServiceError as e:
+                    logger.error(f"Error en PlayerStatsService: {e}")
+                    return None, None, f"Error obteniendo estadísticas: {str(e)}", None
+            
+            # SI NO ES STATS, CONTINUAR CON SQL NORMAL
+            logger.info("Consulta normal. Generando SQL...")
             
             # Construir mensajes para el LLM
             messages = []
@@ -169,6 +314,13 @@ Always respond with ONLY a JSON object. No explanation, no markdown, just JSON."
             response_text = response.choices[0].message.content.strip()
             logger.info(f"Respuesta de LLM: {response_text[:100]}...")
             
+            # PRE-CORRECCIÓN DEFENSIVA: Si el LLM generó temporada 2022, corregir ANTES de parsear
+            # Esto es crítico porque el LLM a veces ignora el prompt
+            response_text = response_text.replace("'2022'", "'2024'")  # Reemplazar string '2022' con '2024'
+            response_text = response_text.replace(", 2022", ", 2024")  # Reemplazar en listas
+            response_text = response_text.replace("= 2022", "IN (2024, 2025)")  # Reemplazar número puro
+            response_text = response_text.replace("= '2022'", "IN (2024, 2025)")  # Reemplazar string
+            
             # Parsear JSON de respuesta
             try:
                 # Intentar extraer JSON si está dentro de markdown
@@ -187,24 +339,33 @@ Always respond with ONLY a JSON object. No explanation, no markdown, just JSON."
             
             if not sql:
                 logger.error("LLM no retornó campo 'sql'")
-                return None, None, "LLM no generó SQL válido"
+                return None, None, "LLM no generó SQL válido", None
+            
+            # POST-VALIDACIÓN DEFENSIVA: Corregir valores de temporada muy comunes
+            # Si el LLM ignora nuestras instrucciones y usa 2022, reemplazarlo
+            # Esto es un último recurso cuando el prompt no es suficiente
+            if "season = '2022'" in sql or "season = 2022" in sql:
+                logger.warning("LLM utilizó temporada 2022 prohibida, corrigiendo automáticamente...")
+                sql = sql.replace("season = '2022'", "season IN (2024, 2025)")
+                sql = sql.replace("season = 2022", "season IN (2024, 2025)")
+                logger.info(f"SQL corregido: {sql[:80]}...")
             
             # Validar seguridad del SQL
             is_safe, error_msg = self._validate_sql_safety(sql)
             if not is_safe:
                 logger.warning(f"SQL rechazado por validación de seguridad: {error_msg}")
-                return None, None, f"Consulta rechazada: {error_msg}"
+                return None, None, f"Consulta rechazada: {error_msg}", None
             
             logger.info(f"SQL generado exitosamente: {sql[:100]}...")
-            return sql, visualization_type, None
+            return sql, visualization_type, None, None
         
         except httpx.TimeoutException:
             logger.error("Timeout al conectar con OpenRouter")
-            return None, None, "OpenRouter tardo demasiado en responder"
+            return None, None, "OpenRouter tardo demasiado en responder", None
         
         except Exception as e:
             logger.error(f"Error generando SQL: {type(e).__name__}: {e}")
-            return None, None, f"Error en servicio de IA: {str(e)[:100]}"
+            return None, None, f"Error en servicio de IA: {str(e)[:100]}", None
 
     async def generate_sql_with_fallback(
         self,
@@ -212,7 +373,7 @@ Always respond with ONLY a JSON object. No explanation, no markdown, just JSON."
         schema_context: str,
         conversation_history: Optional[List[Dict[str, str]]] = None,
         max_retries: int = 2,
-    ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    ) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[List[Dict[str, Any]]]]:
         """
         Intenta generar SQL con reintentos en caso de error transitorio.
 
@@ -223,20 +384,20 @@ Always respond with ONLY a JSON object. No explanation, no markdown, just JSON."
             max_retries: Número máximo de reintentos.
 
         Returns:
-            Tupla (sql, visualization_type, error_message).
+            Tupla (sql, visualization_type, error_message, direct_data).
         """
         for attempt in range(max_retries):
-            sql, viz_type, error = await self.generate_sql(
+            sql, viz_type, error, direct_data = await self.generate_sql(
                 query, schema_context, conversation_history
             )
             
-            if sql is not None:
-                return sql, viz_type, error
+            if sql is not None or direct_data is not None:
+                return sql, viz_type, error, direct_data
             
             if attempt < max_retries - 1:
                 logger.info(f"Reintentando generación de SQL (intento {attempt + 2}/{max_retries})")
                 import asyncio
                 await asyncio.sleep(1)  # Esperar antes de reintentar
         
-        return None, None, error  # Retornar último error
+        return None, None, error, None  # Retornar último error
 

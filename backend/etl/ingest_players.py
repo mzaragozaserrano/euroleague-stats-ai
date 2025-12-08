@@ -2,11 +2,14 @@
 Script ETL para ingestar datos de jugadores desde la API de Euroleague.
 
 Proporciona funciones para:
-- Obtener datos de jugadores desde la API de Euroleague
+- Obtener datos de jugadores desde el roster de cada equipo (v1/teams)
 - Transformar los datos al formato de los modelos SQLAlchemy
 - Persistir datos usando la lógica de upsert para evitar duplicados
 - Manejar errores de red y base de datos
 - Validar relaciones con equipos
+
+La API retorna jugadores dentro de la estructura de cada equipo en:
+    /v1/teams -> clubs -> club -> roster -> player
 
 Uso típico:
     async def main():
@@ -51,18 +54,20 @@ class PlayerPersistenceError(PlayerIngestError):
     pass
 
 
-async def fetch_players_from_api(
-    client: Optional[EuroleagueClient] = None, season: Optional[int] = None
+async def fetch_players_from_teams_roster(
+    client: Optional[EuroleagueClient] = None,
 ) -> Dict[str, Any]:
     """
-    Obtener datos de jugadores desde la API de Euroleague.
+    Obtener datos de jugadores desde el roster de cada equipo (v1/teams).
+
+    La API retorna:
+        clubs -> club (lista) -> roster -> player (lista o dict)
 
     Args:
         client: Cliente de Euroleague. Si es None, se crea uno nuevo.
-        season: Temporada opcional para filtrar
 
     Returns:
-        Respuesta JSON de la API con los datos de jugadores.
+        Diccionario con estructura {"players": [lista de jugadores]}
 
     Raises:
         EuroleagueClientError: Si hay error en la solicitud a la API.
@@ -70,15 +75,56 @@ async def fetch_players_from_api(
     if client is None:
         client = EuroleagueClient()
 
-    logger.info(
-        f"Obteniendo datos de jugadores desde la API de Euroleague (temporada: {season})..."
-    )
+    logger.info("Obteniendo datos de equipos (que contienen rosters de jugadores)...")
+    
     try:
-        response = await client.get_players(season=season)
-        logger.info(f"Se obtuvieron datos de jugadores. Respuesta contiene: {response.keys()}")
-        return response
+        # Obtener todos los equipos con sus rosters
+        teams_response = await client.get_teams()
+        
+        # Extraer lista de equipos
+        clubs_data = teams_response.get("clubs", {})
+        teams_list = clubs_data.get("club", [])
+        
+        if not isinstance(teams_list, list):
+            teams_list = [teams_list]
+        
+        logger.info(f"Se obtuvieron {len(teams_list)} equipos")
+        
+        # Extraer jugadores de los rosters de cada equipo
+        all_players = []
+        for team in teams_list:
+            team_code = team.get("@code")
+            team_name = team.get("clubname", team.get("name"))
+            
+            # Obtener roster del equipo
+            roster = team.get("roster", {})
+            if not isinstance(roster, dict):
+                logger.warning(f"Roster del equipo {team_code} no es un diccionario")
+                continue
+            
+            players_in_roster = roster.get("player", [])
+            
+            # Asegurar que es una lista
+            if not isinstance(players_in_roster, list):
+                if players_in_roster:
+                    players_in_roster = [players_in_roster]
+                else:
+                    players_in_roster = []
+            
+            logger.debug(f"Equipo {team_code} ({team_name}): {len(players_in_roster)} jugadores")
+            
+            # Agregar información del equipo a cada jugador
+            for player in players_in_roster:
+                player["team_code"] = team_code
+                player["team_name"] = team_name
+                all_players.append(player)
+        
+        logger.info(f"Total de jugadores extraídos de rosters: {len(all_players)}")
+        
+        return {"players": all_players}
+        
     except EuroleagueClientError as e:
-        logger.error(f"Error al obtener datos de jugadores desde la API: {str(e)}")
+        logger.error(f"Error al obtener datos de equipos: {str(e)}")
         raise PlayerIngestError(f"Error al obtener datos de jugadores: {str(e)}") from e
 
 
@@ -87,21 +133,38 @@ def validate_player_data(player_data: Dict[str, Any]) -> bool:
     Validar que los datos del jugador contienen los campos requeridos.
 
     Args:
-        player_data: Diccionario con datos del jugador
+        player_data: Diccionario con datos del jugador (formato XML parseado)
 
     Returns:
         True si los datos son válidos, False si faltan campos requeridos.
     """
-    required_fields = ["id", "name", "team_id"]
-    return all(field in player_data for field in required_fields)
+    # Campos requeridos en formato XML (@name, @code)
+    has_code = "@code" in player_data or "code" in player_data
+    has_name = "@name" in player_data or "name" in player_data
+    has_team_code = "team_code" in player_data  # Agregado por fetch_players_from_teams_roster
+    
+    return has_code and has_name and has_team_code
 
 
 def transform_player_data(api_player: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Transformar datos de jugador desde el formato de API al formato del modelo SQLAlchemy.
+    Transformar datos de jugador desde el formato de roster XML al formato del modelo SQLAlchemy.
+
+    Estructura XML parseada:
+    {
+        "@code": "006590",
+        "@name": "BEAUBOIS, RODRIGUE",
+        "@alias": "Beaubois",
+        "@dorsal": "1",
+        "@position": "Guard",
+        "@countrycode": "FRA",
+        "@countryname": "France",
+        "team_code": "IST",  # Agregado por fetch_players_from_teams_roster
+        "team_name": "Anadolu Efes Istanbul"
+    }
 
     Args:
-        api_player: Diccionario con datos del jugador desde la API
+        api_player: Diccionario con datos del jugador desde el roster XML
 
     Returns:
         Diccionario con datos transformados para el modelo Player
@@ -113,56 +176,58 @@ def transform_player_data(api_player: Dict[str, Any]) -> Dict[str, Any]:
         # Validar datos requeridos
         if not validate_player_data(api_player):
             logger.warning(f"Jugador con datos incompletos: {api_player}. Se rechazará.")
-            raise PlayerTransformationError(f"Campos requeridos faltantes en jugador: {api_player}")
+            raise PlayerTransformationError(f"Campos requeridos faltantes en jugador")
 
+        # Extraer datos del formato XML (@prefijo)
+        player_code = api_player.get("@code") or api_player.get("code")
+        player_name = api_player.get("@name") or api_player.get("name")
+        position = api_player.get("@position") or api_player.get("position")
+        team_code = api_player.get("team_code")
+        
         transformed = {
-            "id": int(api_player["id"]),
-            "name": str(api_player["name"]),
-            "team_id": int(api_player["team_id"]),
-            "position": api_player.get("position", None),
-            "height": api_player.get("height", None),
-            "birth_date": api_player.get("birth_date", None),
+            "player_code": str(player_code).strip(),  # Código de Euroleague API
+            "name": str(player_name).strip(),
+            "team_code": str(team_code).strip(),  # Retenemos el código del equipo para lookup
+            "position": str(position).strip() if position else None,
+            "height": None,  # No disponible en el roster XML
+            "birth_date": None,  # No disponible en el roster XML
         }
 
         # Validar que el nombre no esté vacío
         if not transformed["name"]:
-            raise PlayerTransformationError(f"Nombre vacío en jugador: {api_player}")
+            raise PlayerTransformationError(f"Nombre de jugador vacío: {api_player}")
 
-        # Validar que team_id es válido
-        if transformed["team_id"] <= 0:
-            raise PlayerTransformationError(f"team_id inválido en jugador: {api_player}")
-
-        logger.debug(f"Jugador transformado: {transformed}")
+        logger.debug(f"Jugador transformado: {transformed['player_code']} - {transformed['name']}")
         return transformed
 
-    except (ValueError, KeyError) as e:
-        logger.error(f"Error transformando datos de jugador {api_player}: {str(e)}")
-        raise PlayerTransformationError(f"Error transformando datos de jugador: {str(e)}") from e
     except PlayerTransformationError:
         raise
     except Exception as e:
-        logger.error(f"Error inesperado transformando jugador {api_player}: {str(e)}")
-        raise PlayerTransformationError(f"Error inesperado transformando jugador: {str(e)}") from e
+        logger.error(f"Error transformando datos de jugador {api_player}: {str(e)}")
+        raise PlayerTransformationError(
+            f"Error transformando datos de jugador: {str(e)}"
+        ) from e
 
 
-async def team_exists(session: AsyncSession, team_id: int) -> bool:
+async def get_team_id_by_code(session: AsyncSession, team_code: str) -> Optional[int]:
     """
-    Verificar si un equipo existe en la base de datos.
+    Obtener el ID del equipo por su código.
 
     Args:
         session: Sesión de base de datos asincrónica
-        team_id: ID del equipo a verificar
+        team_code: Código del equipo (ej: 'IST', 'MAD', etc.)
 
     Returns:
-        True si el equipo existe, False en caso contrario
+        ID del equipo si existe, None en caso contrario
     """
     try:
-        stmt = select(exists(select(Team).where(Team.id == team_id)))
+        stmt = select(Team.id).where(Team.code == team_code)
         result = await session.execute(stmt)
-        return result.scalar()
+        team_id = result.scalar_one_or_none()
+        return team_id
     except SQLAlchemyError as e:
-        logger.error(f"Error verificando existencia de equipo {team_id}: {str(e)}")
-        return False
+        logger.error(f"Error obteniendo ID de equipo para código '{team_code}': {str(e)}")
+        return None
 
 
 async def upsert_player(session: AsyncSession, player_data: Dict[str, Any]) -> Player:
@@ -184,25 +249,27 @@ async def upsert_player(session: AsyncSession, player_data: Dict[str, Any]) -> P
         PlayerPersistenceError: Si hay error en la operación de BD
     """
     try:
-        # Verificar que el equipo existe
-        team_exists_check = await team_exists(session, player_data["team_id"])
-        if not team_exists_check:
+        # Obtener el ID del equipo por su código
+        team_code = player_data.get("team_code")
+        team_id = await get_team_id_by_code(session, team_code)
+        
+        if not team_id:
             raise PlayerPersistenceError(
-                f"El equipo con id={player_data['team_id']} no existe en la base de datos"
+                f"El equipo con código '{team_code}' no existe en la base de datos"
             )
 
-        # Buscar jugador existente por id
-        stmt = select(Player).where(Player.id == player_data["id"])
+        # Buscar jugador existente por player_code
+        stmt = select(Player).where(Player.player_code == player_data["player_code"])
         result = await session.execute(stmt)
         existing_player = result.scalar_one_or_none()
 
         if existing_player:
             # Actualizar jugador existente
             logger.info(
-                f"Actualizando jugador existente: {player_data['id']} - {player_data['name']}"
+                f"Actualizando jugador existente: {player_data['player_code']} - {player_data['name']}"
             )
             existing_player.name = player_data["name"]
-            existing_player.team_id = player_data["team_id"]
+            existing_player.team_id = team_id
             existing_player.position = player_data.get("position")
             existing_player.height = player_data.get("height")
             existing_player.birth_date = player_data.get("birth_date")
@@ -211,11 +278,11 @@ async def upsert_player(session: AsyncSession, player_data: Dict[str, Any]) -> P
             return existing_player
         else:
             # Crear nuevo jugador
-            logger.info(f"Insertando nuevo jugador: {player_data['id']} - {player_data['name']}")
+            logger.info(f"Insertando nuevo jugador: {player_data['player_code']} - {player_data['name']}")
             new_player = Player(
-                id=player_data["id"],
+                player_code=player_data["player_code"],
                 name=player_data["name"],
-                team_id=player_data["team_id"],
+                team_id=team_id,
                 position=player_data.get("position"),
                 height=player_data.get("height"),
                 birth_date=player_data.get("birth_date"),
@@ -268,14 +335,14 @@ async def ingest_players(
     stats = {"total_processed": 0, "inserted": 0, "updated": 0, "errors": 0}
 
     try:
-        # Paso 1: Obtener datos de la API
+        # Paso 1: Obtener datos de jugadores desde los rosters de equipos
         logger.info("=== Iniciando ingesta de jugadores ===")
-        api_response = await fetch_players_from_api(client, season)
+        api_response = await fetch_players_from_teams_roster(client)
 
         # Extraer lista de jugadores de la respuesta
-        players_list = api_response.get("Players", [])
+        players_list = api_response.get("players", [])
         if not players_list:
-            logger.warning(f"La API no retornó jugadores. Respuesta: {api_response}")
+            logger.warning(f"No se obtuvieron jugadores. Respuesta: {api_response}")
             return {**stats, "status": "no_players_found"}
 
         logger.info(f"Se obtuvieron {len(players_list)} jugadores de la API")
@@ -290,7 +357,7 @@ async def ingest_players(
                     transformed = transform_player_data(player_data)
 
                     # Verificar si el jugador es nuevo o existente antes de persistir
-                    stmt = select(Player).where(Player.id == transformed["id"])
+                    stmt = select(Player).where(Player.player_code == transformed["player_code"])
                     result = await session.execute(stmt)
                     existing_player = result.scalar_one_or_none()
 
@@ -299,15 +366,15 @@ async def ingest_players(
 
                     if existing_player:
                         stats["updated"] += 1
-                        logger.debug(f"Jugador actualizado: {transformed['id']}")
+                        logger.debug(f"Jugador actualizado: {transformed['player_code']}")
                     else:
                         stats["inserted"] += 1
-                        logger.debug(f"Jugador insertado: {transformed['id']}")
+                        logger.debug(f"Jugador insertado: {transformed['player_code']}")
 
                 except (PlayerTransformationError, PlayerPersistenceError) as e:
                     stats["errors"] += 1
                     logger.error(
-                        f"Error procesando jugador {player_data.get('id', 'UNKNOWN')}: {str(e)}"
+                        f"Error procesando jugador {player_data.get('@code', 'UNKNOWN')}: {str(e)}"
                     )
                     # Continuar con el siguiente jugador
 

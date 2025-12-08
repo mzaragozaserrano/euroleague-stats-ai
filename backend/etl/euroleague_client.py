@@ -67,7 +67,8 @@ class EuroleagueClient:
         client = EuroleagueClient()
         teams = client.get_teams()
         players = client.get_players()
-        games = client.get_games(season=2023, round_=1)
+        standings = client.get_standings(season=2023)
+        teamstats = client.get_teamstats(season=2023)
     """
 
     # URL base de la API de Euroleague
@@ -80,10 +81,10 @@ class EuroleagueClient:
     ENDPOINTS = {
         "teams": "/v1/teams",
         "players": "/v1/players", 
-        "games": "/v1/games",
-        "playerstats": "/v1/playerstats",
         "standings": "/v1/standings",
         "teamstats": "/v1/teamstats",
+        "games": "/v1/games",
+        "playerstats": "/v1/playerstats",
     }
 
     # Configuración de reintentos
@@ -290,61 +291,6 @@ class EuroleagueClient:
 
         return await self._make_request("GET", self.ENDPOINTS["players"], params=params)
 
-    async def get_games(
-        self, season: Optional[int] = None, round_: Optional[int] = None
-    ) -> Dict[str, Any]:
-        """
-        Obtener lista de partidos.
-
-        Args:
-            season: Temporada opcional para filtrar
-            round_: Jornada opcional para filtrar
-
-        Returns:
-            Datos de partidos en formato JSON
-
-        Raises:
-            EuroleagueClientError: Error en la solicitud
-        """
-        logger.info(f"Obteniendo partidos (temporada: {season}, jornada: {round_})...")
-        params = {}
-        if season:
-            params["SeasonCode"] = f"E{season}"
-        if round_:
-            params["Round"] = round_
-
-        return await self._make_request("GET", self.ENDPOINTS["games"], params=params)
-
-    async def get_playerstats(
-        self, season: Optional[int] = None, round_: Optional[int] = None
-    ) -> Dict[str, Any]:
-        """
-        Obtener estadísticas de jugadores (box scores).
-
-        Args:
-            season: Temporada opcional para filtrar
-            round_: Jornada opcional para filtrar
-
-        Returns:
-            Datos de estadísticas en formato JSON
-
-        Raises:
-            EuroleagueClientError: Error en la solicitud
-        """
-        logger.info(
-            f"Obteniendo estadísticas de jugadores "
-            f"(temporada: {season}, jornada: {round_})..."
-        )
-        params = {}
-        if season:
-            params["SeasonCode"] = f"E{season}"
-        if round_:
-            params["Round"] = round_
-
-        return await self._make_request(
-            "GET", self.ENDPOINTS["playerstats"], params=params
-        )
-
     async def get_standings(self, season: Optional[int] = None) -> Dict[str, Any]:
         """
         Obtener clasificaciones.
@@ -395,6 +341,71 @@ class EuroleagueClient:
 
         return await self._make_request(
             "GET", self.ENDPOINTS["teamstats"], params=params
+        )
+
+    async def get_games(
+        self, season: Optional[int] = None, round_: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        Obtener datos de partidos (games).
+
+        Args:
+            season: Temporada opcional para filtrar
+            round_: Jornada opcional para filtrar
+
+        Returns:
+            Datos de partidos en formato JSON
+
+        Raises:
+            EuroleagueClientError: Error en la solicitud
+        """
+        logger.info(
+            f"Obteniendo partidos (temporada: {season}, jornada: {round_})..."
+        )
+        params = {}
+        if season:
+            params["SeasonCode"] = f"E{season}"
+        if round_:
+            params["Round"] = round_
+
+        return await self._make_request(
+            "GET", self.ENDPOINTS["games"], params=params
+        )
+
+    async def get_playerstats(
+        self,
+        seasoncode: Optional[str] = None,
+        playercode: Optional[str] = None,
+        round_: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        Obtener estadísticas de jugadores (box scores).
+
+        Args:
+            seasoncode: Código de temporada (ej: "E2025", "E2024")
+            playercode: Código del jugador (ej: "DECK", "PAU", "LLULL")
+            round_: Jornada opcional para filtrar
+
+        Returns:
+            Datos de estadísticas de jugadores en formato JSON
+
+        Raises:
+            EuroleagueClientError: Error en la solicitud
+        """
+        logger.info(
+            f"Obteniendo estadísticas de jugadores "
+            f"(temporada: {seasoncode}, jugador: {playercode}, jornada: {round_})..."
+        )
+        params = {}
+        if seasoncode:
+            params["SeasonCode"] = seasoncode
+        if playercode:
+            params["PlayerCode"] = playercode
+        if round_:
+            params["Round"] = round_
+
+        return await self._make_request(
+            "GET", self.ENDPOINTS["playerstats"], params=params
         )
 
     def get_endpoint_url(self, endpoint_name: str) -> str:

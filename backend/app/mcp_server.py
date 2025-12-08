@@ -283,7 +283,7 @@ class TextToSQLMCPServer:
 TABLES:
 - teams (id, code, name, logo_url): Equipos de Euroleague.
 - players (id, team_id, name, position): Jugadores y su equipo.
-- games (id, season, round, home_team_id, away_team_id, date, home_score, away_score): Partidos jugados.
+- games (id, season, round, home_team_id, away_team_id, date, home_score, away_score): Partidos jugados. SEASON values are integers: 2023, 2024, 2025.
 - player_stats_games (id, game_id, player_id, team_id, minutes, points, rebounds_total, assists, fg3_made, pir): Estadisticas de jugador por partido.
 
 KEY RELATIONSHIPS:
@@ -291,7 +291,8 @@ KEY RELATIONSHIPS:
 - player_stats_games.game_id -> games.id
 - players.team_id -> teams.id
 - games.home_team_id, away_team_id -> teams.id
-"""
+
+IMPORTANT - Season values are always INTEGERS (2023, 2024, 2025), NEVER strings like 'current'."""
 
     async def run(self):
         """Inicia el servidor MCP."""

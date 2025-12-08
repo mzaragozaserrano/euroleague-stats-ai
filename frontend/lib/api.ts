@@ -328,3 +328,75 @@ export function resetRateLimitForTesting(): void {
   requestCountResetTime = Date.now();
 }
 
+// ============================================================================
+// INITIALIZATION API
+// ============================================================================
+
+export interface InitStatus {
+  status: 'ready' | 'initializing' | 'error';
+  has_teams: boolean;
+  has_players: boolean;
+  message?: string;
+}
+
+const INIT_ENDPOINT = `${API_BASE_URL}/api/init`;
+const INIT_STATUS_ENDPOINT = `${API_BASE_URL}/api/init/status`;
+
+/**
+ * Verifica si la BD está inicializada y ejecuta ETL si es necesario.
+ */
+export async function checkInit(): Promise<InitStatus> {
+  try {
+    const response = await fetch(INIT_ENDPOINT, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data as InitStatus;
+  } catch (error) {
+    console.error('[API] Error verificando inicialización:', error);
+    return {
+      status: 'error',
+      has_teams: false,
+      has_players: false,
+      message: error instanceof Error ? error.message : 'Error desconocido',
+    };
+  }
+}
+
+/**
+ * Obtiene el estado actual de inicialización sin ejecutar ETL.
+ */
+export async function getInitStatus(): Promise<InitStatus> {
+  try {
+    const response = await fetch(INIT_STATUS_ENDPOINT, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data as InitStatus;
+  } catch (error) {
+    console.error('[API] Error obteniendo estado:', error);
+    return {
+      status: 'error',
+      has_teams: false,
+      has_players: false,
+      message: error instanceof Error ? error.message : 'Error desconocido',
+    };
+  }
+}
+

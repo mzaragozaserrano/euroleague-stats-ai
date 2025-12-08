@@ -5,6 +5,14 @@ import {
   ChatResponse,
   getRateLimitInfo,
 } from '@/lib/api';
+import { PlayerStatsCache } from '@/lib/playerStatsCache';
+import { EuroleagueApi } from '@/lib/euroleagueApi';
+import {
+  classifyQuery,
+  extractParams,
+  extractPlayerName,
+  extractPlayerNamesForComparison,
+} from '@/lib/queryClassifier';
 
 export interface ChatMessage {
   id: string;
@@ -46,16 +54,25 @@ export interface ChatStore {
 
 export const useChatStore = create<ChatStore>()(
   persist(
-    (set, get) => ({
-      // Estado inicial
-      messages: [],
-      history: [],
-      isLoading: false,
-      error: null,
-      coldStartWarning: false,
-      rateLimitWarning: false,
-      lastCleared: undefined,
-      totalQueriesCount: 0,
+    (set, get) => {
+      // Verificar invalidación de caché al inicializar
+      if (typeof window !== 'undefined') {
+        const wasInvalidated = PlayerStatsCache.checkAndInvalidate();
+        if (wasInvalidated) {
+          console.log('[ChatStore] Caché de stats invalidado (después de 7 AM)');
+        }
+      }
+
+      return {
+        // Estado inicial
+        messages: [],
+        history: [],
+        isLoading: false,
+        error: null,
+        coldStartWarning: false,
+        rateLimitWarning: false,
+        lastCleared: undefined,
+        totalQueriesCount: 0,
 
       // Acciones
       addMessage: (message: ChatMessage) =>
@@ -144,11 +161,13 @@ export const useChatStore = create<ChatStore>()(
       /**
        * Envía un mensaje al backend y maneja la respuesta.
        * 
-       * 1. Agrega el mensaje del usuario al historial
-       * 2. Llama a sendChatMessage() con el historial
-       * 3. Maneja cold starts (>3s) y rate limits
-       * 4. Agrega respuesta del asistente al historial
-       * 5. Incrementa contador de queries
+       * Flujo:
+       * 1. Agregar mensaje del usuario al historial
+       * 2. Clasificar tipo de consulta
+       * 3. Si es de stats → manejar en frontend (caché + API)
+       * 4. Si es general → llamar al backend
+       * 5. Agregar respuesta del asistente al historial
+       * 6. Incrementar contador de queries
        */
       sendMessage: async (userQuery: string) => {
         const state = get();
@@ -178,21 +197,133 @@ export const useChatStore = create<ChatStore>()(
         }));
 
         try {
-          // Preparar historial para el backend (formato: {role, content})
-          const backendHistory = state.history.map((msg) => ({
-            role: msg.role,
-            content: msg.content,
-          }));
+          // 2. Clasificar consulta
+          const queryType = classifyQuery(userQuery.trim());
+          console.log(`[ChatStore] Tipo de consulta detectado: ${queryType}`);
+          
+          let response: any;
+          let isColdStart = false;
+          let isRateLimit = false;
 
-          // 2. Llamar al API
-          const result = await sendChatMessage(
-            userQuery.trim(),
-            backendHistory
-          );
+          // 3. Manejar según tipo
+          if (queryType === "top_players") {
+            console.log('[ChatStore] Manejando consulta de top players en frontend');
+            
+            const params = extractParams(userQuery.trim());
+            const startTime = Date.now();
+            
+            try {
+              const stats = await EuroleagueApi.getTopPlayers(
+                params.seasonCode,
+                params.stat,
+                params.topN,
+                params.teamCode
+              );
+              
+              const latencyMs = Date.now() - startTime;
+              if (latencyMs > 3000) {
+                isColdStart = true;
+              }
+              
+              response = {
+                data: stats,
+                visualization: "bar",
+                sql: null,
+                error: null,
+              };
+            } catch (error) {
+              throw error;
+            }
+          } else if (queryType === "player_lookup") {
+            console.log('[ChatStore] Manejando consulta de búsqueda de jugador en frontend');
+            
+            const playerName = extractPlayerName(userQuery.trim());
+            const startTime = Date.now();
+            
+            if (!playerName) {
+              throw new Error('No se pudo extraer el nombre del jugador');
+            }
+            
+            try {
+              const player = await EuroleagueApi.searchPlayer("E2025", playerName);
+              
+              const latencyMs = Date.now() - startTime;
+              if (latencyMs > 3000) {
+                isColdStart = true;
+              }
+              
+              if (!player) {
+                throw new Error(`No se encontró el jugador: ${playerName}`);
+              }
+              
+              response = {
+                data: [player],
+                visualization: "table",
+                sql: null,
+                error: null,
+              };
+            } catch (error) {
+              throw error;
+            }
+          } else if (queryType === "comparison") {
+            console.log('[ChatStore] Manejando consulta de comparación en frontend');
+            
+            const players = extractPlayerNamesForComparison(userQuery.trim());
+            const startTime = Date.now();
+            
+            if (!players) {
+              throw new Error('No se pudieron extraer los nombres de los jugadores para comparación');
+            }
+            
+            try {
+              const [player1, player2] = await EuroleagueApi.comparePlayers(
+                "E2025",
+                players[0],
+                players[1]
+              );
+              
+              const latencyMs = Date.now() - startTime;
+              if (latencyMs > 3000) {
+                isColdStart = true;
+              }
+              
+              const comparisonData = [];
+              if (player1) comparisonData.push(player1);
+              if (player2) comparisonData.push(player2);
+              
+              if (comparisonData.length === 0) {
+                throw new Error(`No se encontraron los jugadores: ${players.join(' vs ')}`);
+              }
+              
+              response = {
+                data: comparisonData,
+                visualization: "bar",
+                sql: null,
+                error: null,
+              };
+            } catch (error) {
+              throw error;
+            }
+          } else {
+            // Consulta general → usar backend
+            console.log('[ChatStore] Manejando consulta general en backend');
+            
+            const backendHistory = state.history.map((msg) => ({
+              role: msg.role,
+              content: msg.content,
+            }));
 
-          const { response, isColdStart, isRateLimit, latencyMs } = result;
+            const result = await sendChatMessage(
+              userQuery.trim(),
+              backendHistory
+            );
 
-          // 3. Detectar warnings
+            response = result.response;
+            isColdStart = result.isColdStart;
+            isRateLimit = result.isRateLimit;
+          }
+
+          // Detectar warnings
           if (isColdStart) {
             set({ coldStartWarning: true });
           }
@@ -200,10 +331,14 @@ export const useChatStore = create<ChatStore>()(
             set({ rateLimitWarning: true });
           }
 
-          // Log para debugging
           console.log(
-            `[ChatStore] Respuesta recibida en ${latencyMs}ms`,
-            response
+            `[ChatStore] Respuesta procesada`,
+            {
+              tipo: queryType,
+              tieneData: !!response.data,
+              tieneError: !!response.error,
+              visualization: response.visualization,
+            }
           );
 
           // 4. Agregar respuesta del asistente
@@ -232,7 +367,7 @@ export const useChatStore = create<ChatStore>()(
               ? error.message
               : 'Error desconocido';
 
-          console.error('[ChatStore] Error enviando mensaje:', error);
+          console.error('[ChatStore] Error procesando mensaje:', error);
 
           // Agregar mensaje de error
           const errorMessage_obj: ChatMessage = {
@@ -251,7 +386,8 @@ export const useChatStore = create<ChatStore>()(
           }));
         }
       },
-    }),
+      };
+    },
     {
       name: 'chat-storage', // localStorage key
       version: 2, // Incrementado para mejor versionado

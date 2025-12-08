@@ -13,6 +13,7 @@ class Player(Base):
     __tablename__ = "players"
 
     id = Column(Integer, primary_key=True, index=True)
+    player_code = Column(String(50), nullable=False, unique=True, index=True)  # Código de Euroleague API
     team_id = Column(
         Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True
     )
