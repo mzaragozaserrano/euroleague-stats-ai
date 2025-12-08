@@ -23,68 +23,65 @@ root/
 ```
 
 ## 3. Data Model (Schema)
-*IMPORTANTE: La BD solo almacena METADATOS (códigos). Los datos reales vienen de la API de Euroleague.*
 
-### Tablas Activas:
+### Tablas de Producción:
 
 - **`teams`**: `id`, `code`, `name`, `logo_url`.
-  - **Propósito:** Almacenar códigos de equipos para llamadas a API.
-  - **Actualización:** Diaria (7 AM) vía ETL automático.
+  - Actualización: Diaria (7 AM UTC) vía ETL automático desde API Euroleague.
 
 - **`players`**: `id`, `player_code`, `team_id`, `name`, `position`.
-  - **Propósito:** Almacenar códigos de jugadores para llamadas a API.
-  - **Campo clave:** `player_code` (código de Euroleague API).
-  - **Actualización:** Diaria (7 AM) vía ETL automático.
+  - Campo clave: `player_code` (código de Euroleague API).
+  - Actualización: Diaria (7 AM UTC) vía ETL automático.
 
-- **`schema_embeddings`**:
-  - `content`: Text description of tables/columns.
-  - `embedding`: Vector representation (1536 dim).
-  - *Purpose:* RAG retrieval to find relevant schema for SQL generation.
+- **`player_season_stats`**: `id`, `player_id`, `season`, `games_played`, `points`, `rebounds`, `assists`, `pir`.
+  - Estadísticas agregadas por temporada (desde API Euroleague vía ETL).
+  - Actualización: Diaria (7 AM UTC).
 
-### Tablas Deprecadas (Nueva Arquitectura):
+- **`schema_embeddings`**: `id`, `content`, `embedding`.
+  - Descripciones de tablas/columnas para RAG retrieval.
+  - Permite que el LLM genere SQL relevante.
 
-- ~~`games`~~ - Los datos de partidos vienen de la API
-- ~~`player_stats_games`~~ - Las estadísticas vienen de la API
+### Almacenamiento Frontend (localStorage - SOLO CHATS):
 
-### Caché Frontend (localStorage):
+- **`chat-storage`**: Historial de conversaciones del usuario (ÚNICA persistencia del frontend).
+  - Estructura: `{ messages: [], history: [], lastCleared, totalQueriesCount, sessions, currentSessionId }`
+  - Versión: 3 (con migración automática desde v1, v2)
+  - Sobrevive a cierres de tab y recargas de página.
+  - **NO HAY base de datos embebida en el frontend** (sin IndexedDB, SQLite, u otros).
+  - Todos los datos se consultan del backend (Neon PostgreSQL).
 
-- **`player-stats-cache`**: Estadísticas de jugadores por temporada.
-  - Estructura: `{ "E2024": { data: [], timestamp, lastSync }, "E2025": {...} }`
-  - Invalidación: Automática después de las 7 AM.
-  - Tamaño: ~5-10 MB (solo temporadas activas).
+## 4. Flujo de Datos
 
-## 4. Flujo de Datos (Nueva Arquitectura)
+### Arquitectura Actual:
 
-### Flujo Principal:
 ```
-Usuario → Frontend (caché check) → API Euroleague → Visualización
-         ↓ (solo para códigos)
-         Backend (Text-to-SQL) → BD (códigos)
+API Euroleague (GitHub)
+        ↓ (ETL diario 7 AM UTC)
+Backend BD (Neon PostgreSQL)
+        ↑ (Text-to-SQL generado por LLM)
+Frontend ChatStore
+        ↓ (localStorage persistence)
+Usuario Chat History
 ```
 
-### Pasos Detallados:
+### Flujo de una Consulta:
 
-1. **Input:** User Query ("Top 10 anotadores").
-2. **Query Classification (Frontend):**
-   - Detectar tipo: `top_players`, `player_lookup`, `team_roster`, `comparison`, `general`.
-3. **Caché Check (Frontend):**
-   - Verificar `PlayerStatsCache.getSeasonStats('E2025')`.
-   - Si existe → usar caché (latencia: 0 ms).
-4. **API Call (si no hay caché):**
-   - Llamar `EuroleagueApi.getPlayerStats('E2025')`.
-   - Guardar en caché para futuras consultas.
-5. **Filtrado/Ordenamiento (Frontend):**
-   - Aplicar lógica según la consulta (top N, filtro por equipo, etc.).
-6. **Visualización:**
-   - Renderizar con `DataVisualizer` (BarChart, LineChart, Table).
+1. **Usuario escribe query** en el chat frontend
+2. **Frontend envía** `POST /api/chat` con query + historial
+3. **Backend procesa:**
+   - Obtiene esquema relevante (RAG)
+   - LLM genera SQL usando OpenRouter
+   - Ejecuta SQL contra BD (Neon)
+   - Retorna resultados en JSON
+4. **Frontend recibe** respuesta y renderiza visualización
+5. **localStorage persiste** el chat para futuras sesiones
 
-### Uso de Backend (Text-to-SQL):
+### Limitaciones Actuales:
 
-**Solo para obtener códigos de equipos/jugadores:**
-- Query: "Jugadores del Real Madrid"
-- SQL: `SELECT code FROM teams WHERE name ILIKE '%Real Madrid%'`
-- Retorna: `{ code: "RM" }`
-- Frontend usa `RM` para filtrar stats de la API.
+- ❌ No se pueden consultar datos a nivel de partido individual (`player_stats_games`)
+- ❌ Las queries que requieren "partidos específicos" retornan error explicativo
+- ✅ Sí se pueden consultar estadísticas agregadas por temporada (`player_season_stats`)
+- ✅ Sí se pueden consultar metadatos (equipos, jugadores, posiciones)
 
 ## 5. Critical Constraints
 - **Neon Serverless:** MUST use `poolclass=NullPool` in SQLAlchemy engine.

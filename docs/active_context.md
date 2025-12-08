@@ -167,33 +167,35 @@ Todas las tareas de deployment y frontend completadas. Sistema listo para produc
 
 ## Nueva Arquitectura (Diciembre 2025)
 
-**Cambio Fundamental:** La BD solo almacena **códigos** (teams, players). Los **datos reales** vienen de la API de Euroleague y se cachean en el frontend.
+**Modelo Actual: Backend-Centric + Frontend Stateless (sin BD embebida)**
+
+1. ✅ **API Euroleague** → **ETL Daily** (7 AM UTC) → **Backend BD (Neon)**
+2. ✅ **Frontend** persiste SOLO **historial de chats** en localStorage (NO hay base de datos embebida)
+3. ✅ **Backend genera SQL** usando LLM (OpenRouter)
+4. ✅ **Detección de queries**: Detecta si son de stats agregadas o partidos individuales
+5. ✅ **Todos los datos se consultan del backend** (source of truth = Neon)
 
 ### Implementado:
-1. ✅ **PlayerStatsCache:** Caché de stats por temporada en localStorage
-   - Invalidación automática después de las 7 AM
-   - Estructura: `{ "E2024": { data, timestamp }, "E2025": {...} }`
-2. ✅ **EuroleagueApi:** Cliente para API de Euroleague
-   - Prioriza caché antes de llamar a la API
-   - Métodos: `getPlayerStats()`, `getTopPlayers()`, `searchPlayer()`, `comparePlayers()`
-3. ✅ **Modelo Player:** Agregado campo `player_code` (código de Euroleague API)
-4. ✅ **ETL Actualizado:** `ingest_players.py` ahora usa `player_code`
-5. ✅ **GitHub Actions:** Workflow diario a las 7 AM para actualizar códigos
-6. ✅ **Documentación:** `NEW_ARCHITECTURE.md` y `QUERY_FLOW_NEW_ARCHITECTURE.md`
+1. ✅ **ETL Pipeline**: Población automática de tablas (teams, players, player_season_stats)
+2. ✅ **ETL Box Scores**: `ingest_games.py` ahora descarga player_stats_games desde euroleague_api
+3. ✅ **ChatStore**: Persistencia de chat history en localStorage
+4. ✅ **Text-to-SQL Service**: Generación de SQL + detección de queries de stats
+5. ✅ **Error Handling**: Mensajes claros cuando falta funcionalidad
+6. ✅ **DataVisualizer**: Renderización de BarChart, LineChart, DataTable
+7. ✅ **Query Detection**: Backend detecta correctamente queries de partidos (ahora poblada la BD)
 
-### Pendiente:
-1. ⏳ **Query Classifier (Frontend):** Detectar tipo de consulta y manejar en frontend
-2. ⏳ **Integrar en ChatStore:** Usar `EuroleagueApi` antes de llamar al backend
-3. ⏳ **Adaptar Text-to-SQL:** Retornar solo códigos (no stats)
-4. ⏳ **Migración BD:** Ejecutar `002_add_player_code.sql`
-5. ⏳ **Testing:** End-to-end con queries reales
+### Próximos pasos:
+1. ⏳ **Ejecutar `ingest_games.py`**: Poblar player_stats_games con datos de euroleague_api
+2. ⏳ **Actualizar text_to_sql.py**: Permitir queries de partidos cuando tabla esté poblada
+3. ⏳ **Analytics avanzadas**: Shot charts, heatmaps, temporal analysis
 
 ## Next Steps (Immediate)
 1. **Phase 4 - Nueva Arquitectura:**
+   - ✅ **Migración 004 Completada:** Tabla `player_season_stats` creada y poblada con 140 registros
+   - ✅ **ETL Funcional:** `ingest_player_stats.py` extrae datos de euroleague_api correctamente
    - Implementar `queryClassifier.ts` en frontend
    - Integrar `EuroleagueApi` en `chatStore.sendMessage()`
    - Adaptar `text_to_sql.py` para retornar solo códigos
-   - Ejecutar migración `002_add_player_code.sql`
    - Testing end-to-end
 2. **Phase 5 - Post MVP:**
    - Authentication y monetización
