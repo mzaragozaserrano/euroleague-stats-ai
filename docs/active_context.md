@@ -1,9 +1,9 @@
 # Active Context
 
 ## Current Focus
-**#47: 3.4 Frontend - API Integration** (COMPLETADO ✓)
+**#45: 3.5 Frontend - Persistence & UX Enhancements** (EN PROGRESO)
 
-Integracion completa del frontend con el endpoint /api/chat del backend, con manejo robusto de errores, reintentos automaticos, deteccion de cold starts y rate limits.
+Mejoras de persistencia robusta y UX con manejo de estados de carga, advertencias de rate limits, cold start indicators y optimizaciones de rendimiento.
 
 ## Recent Decisions & Achievements
 - **ETL Completed:** We have a robust, tested ETL pipeline running daily on GitHub Actions.
