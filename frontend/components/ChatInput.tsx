@@ -99,7 +99,7 @@ export function ChatInput({ onSubmit, disabled = false, debounceMs = 300 }: Chat
           placeholder="Haz una pregunta sobre estadísticas de Euroliga..."
           disabled={isLoading || disabled || isSubmitting}
           rows={1}
-          className="flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm min-h-10 max-h-[120px]"
+          className="flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-base text-gray-900 ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm min-h-10 max-h-[120px]"
         />
         <Button
           type="submit"

@@ -43,6 +43,10 @@ class ChatResponse(BaseModel):
     visualization: Optional[str] = Field(None, description="Tipo de visualizacion")
     error: Optional[str] = Field(None, description="Mensaje de error si aplica")
 
+    class Config:
+        # Excluir campos None del JSON de respuesta
+        exclude_none = True
+
 
 # ============================================================================
 # HELPER FUNCTIONS

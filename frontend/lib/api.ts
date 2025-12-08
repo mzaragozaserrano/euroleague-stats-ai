@@ -96,18 +96,18 @@ function validateResponse(data: unknown): ChatResponse {
   // La respuesta debe ser un objeto con propiedades opcionales
   const validated: ChatResponse = {};
 
-  if (response.sql !== undefined) {
+  if (response.sql !== undefined && response.sql !== null) {
     if (typeof response.sql !== 'string') {
       throw new Error('Campo sql debe ser string');
     }
     validated.sql = response.sql;
   }
 
-  if (response.data !== undefined) {
+  if (response.data !== undefined && response.data !== null) {
     validated.data = response.data;
   }
 
-  if (response.visualization !== undefined) {
+  if (response.visualization !== undefined && response.visualization !== null) {
     if (
       typeof response.visualization !== 'string' ||
       !['bar', 'line', 'table'].includes(response.visualization)
@@ -122,9 +122,16 @@ function validateResponse(data: unknown): ChatResponse {
       | 'table';
   }
 
-  if (response.error !== undefined) {
+  if (response.error !== undefined && response.error !== null) {
     if (typeof response.error !== 'string') {
-      throw new Error('Campo error debe ser string');
+      const errorType = typeof response.error;
+      const errorValue = JSON.stringify(response.error);
+      console.error(
+        `[API] Campo error tiene tipo incorrecto: ${errorType}, valor: ${errorValue}`
+      );
+      throw new Error(
+        `Campo error debe ser string, pero se recibió ${errorType}. Valor: ${errorValue}`
+      );
     }
     validated.error = response.error;
   }
@@ -227,9 +234,34 @@ export async function sendChatMessage(
       );
     }
 
+    // Verificar que el contenido sea JSON
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      throw new Error(
+        `El servidor retornó ${contentType || 'contenido desconocido'} en lugar de JSON. Respuesta: ${text.substring(0, 100)}`
+      );
+    }
+
     // Parsear respuesta
-    const jsonData = await response.json();
-    const chatResponse = validateResponse(jsonData);
+    let jsonData: unknown;
+    try {
+      jsonData = await response.json();
+    } catch (parseError) {
+      throw new Error(
+        `Error parseando respuesta JSON: ${parseError instanceof Error ? parseError.message : 'Error desconocido'}`
+      );
+    }
+
+    // Validar respuesta
+    let chatResponse: ChatResponse;
+    try {
+      chatResponse = validateResponse(jsonData);
+    } catch (validationError) {
+      throw new Error(
+        `Error validando respuesta: ${validationError instanceof Error ? validationError.message : 'Error desconocido'}`
+      );
+    }
 
     const latencyMs = Date.now() - startTime;
     const isColdStart = latencyMs > COLD_START_THRESHOLD_MS;
@@ -257,7 +289,7 @@ export async function sendChatMessage(
       `[API] Error en ${latencyMs}ms: ${errorMessage}`
     );
 
-    // Retornar como error en la respuesta
+    // Retornar como error en la respuesta (siempre como string)
     return {
       response: {
         error: `No se pudo conectar con el servidor: ${errorMessage}. Verifica que el backend esté corriendo en ${API_BASE_URL}`,
