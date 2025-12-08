@@ -1,11 +1,9 @@
 # Active Context
 
 ## Current Focus
-**#42: 3.1 Chat Interface - Store & State Management (COMPLETADA)**
+**#43: 3.2 Chat Interface - UI Components**
 
-Zustand store implementado con persistencia en localStorage y 10 pruebas BDD pasadas.
-
-Next: **#43:** 3.2 Chat Interface - UI Components
+Crear componentes UI del chat (ChatInput, MessageBubble, MessageList) con shadcn/ui siguiendo diseño mobile-first e integrando con Zustand store.
 
 ## Recent Decisions & Achievements
 - **ETL Completed:** We have a robust, tested ETL pipeline running daily on GitHub Actions.
