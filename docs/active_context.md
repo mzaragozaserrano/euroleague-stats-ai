@@ -81,11 +81,11 @@ Conectar el frontend con el endpoint /api/chat del backend, manejando errores y 
 4. **Documentation:** README completo con ejemplos de uso, props, casos edge.
 
 ## In Progress - Issue #47
-1. **API Service:** Crear `frontend/lib/api.ts` con función `sendChatMessage()`.
-2. **Environment Configuration:** Configurar URL del backend con variable de entorno `NEXT_PUBLIC_API_URL`.
-3. **Error Handling:** Manejo robusto de errores (timeout, rate limits, LLM errors).
-4. **Integration:** Conectar servicio con ChatStore y componentes UI.
-5. **Status Messages:** Mostrar "Despertando al Agente..." para cold starts (>3s).
+1. **API Service:** Crear `frontend/lib/api.ts` con función `sendChatMessage()`. ✓
+2. **Environment Configuration:** Configurar URL del backend con variable de entorno `NEXT_PUBLIC_API_URL`. ✓
+3. **Error Handling:** Manejo robusto de errores (timeout, rate limits, LLM errors). ✓
+4. **Integration:** Conectar servicio con ChatStore y componentes UI. ✓
+5. **Status Messages:** Mostrar "Despertando al Agente..." para cold starts (>3s). ✓
 
 ## Next Steps (Immediate)
 1. **Phase 3 Frontend (En Progreso):** 
