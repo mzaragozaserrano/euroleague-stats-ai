@@ -212,7 +212,7 @@ export const useChatStore = create<ChatStore>()(
             role: 'assistant',
             content: response.error
               ? response.error
-              : 'Query ejecutada exitosamente',
+              : '', // Sin mensaje genérico - los datos hablan por sí solos
             timestamp: Date.now(),
             sql: response.sql,
             data: response.data,
