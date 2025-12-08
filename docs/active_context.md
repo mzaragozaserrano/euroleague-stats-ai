@@ -1,9 +1,11 @@
 # Active Context
 
 ## Current Focus
-**Issue #40: 2.6 Verification (MCP) - COMPLETADO ✅**
+**#42: 3.1 Chat Interface - Store & State Management (COMPLETADA)**
 
-Configuración de Model Context Protocol (MCP) para Neon en Cursor completada. Ahora nos enfocamos en Phase 3 Frontend.
+Zustand store implementado con persistencia en localStorage y 10 pruebas BDD pasadas.
+
+Next: **#43:** 3.2 Chat Interface - UI Components
 
 ## Recent Decisions & Achievements
 - **ETL Completed:** We have a robust, tested ETL pipeline running daily on GitHub Actions.
@@ -17,7 +19,7 @@ Configuración de Model Context Protocol (MCP) para Neon en Cursor completada. A
 - **Issue #40 Completed:** MCP configuration for Neon in Cursor with verification queries and documentation.
 
 ## Active Problems / Blockers
-- **None currently.** Phase 2 (Backend & AI Engine) 100% complete. Ready for Phase 3 Frontend development.
+- **None currently.** Phase 2 (Backend & AI Engine) 100% complete. Phase 3 Frontend development iniciada.
 
 ## Completed in Issue #33
 1. **BDD Tests:** 12 scenarios en `chat_endpoint.feature` con step definitions.
@@ -45,10 +47,24 @@ Configuración de Model Context Protocol (MCP) para Neon en Cursor completada. A
 4. **Documentation:** Guía completa de setup, uso y troubleshooting en README.md.
 5. **Features:** Solo operaciones SELECT/EXPLAIN permitidas, bloqueo de DROP/DELETE/UPDATE/INSERT/ALTER/CREATE.
 
+## Completed in Issue #42
+1. **Zustand Store:** `frontend/stores/chatStore.ts` con estado completo e interface TypeScript.
+   - Estado: messages[], history[], isLoading, error, coldStartWarning, rateLimitWarning
+   - Acciones: addMessage(), setLoading(), setError(), clearError(), clearHistory()
+2. **Persistencia:** localStorage usando middleware `persist` de Zustand.
+   - Historial sobrevive a cierres de tab y página refresca
+   - Selective persistence (solo history y messages)
+3. **BDD Tests:** 10 escenarios en `chat_store.feature` con step definitions completas.
+   - Validación de inicialización, agregación de mensajes, persistencia
+   - Estados de carga y errores funcionando correctamente
+4. **Test Results:** 10/10 tests pasados exitosamente
+
 ## Next Steps (Immediate)
-1. **Phase 3 Frontend:** Implementar chat UI en Next.js que consuma /api/chat.
-   - Zustand store para gestión de estado
-   - UI components con Shadcn/ui
-   - Integración con backend API
-2. **Deployment:** Preparar deployment a Render
-3. **Performance Tuning:** Caché de queries frecuentes, optimización de prompts.
+1. **Phase 3 Frontend (En Progreso):** 
+   - **#42:** Implementar Zustand store para gestión de estado del chat
+   - **#43:** Crear componentes UI del chat con shadcn/ui (mobile-first)
+   - **#44:** Implementar visualizaciones dinámicas con Recharts (Bar/Line/Table)
+   - **#47:** Conectar frontend con backend `/api/chat` y manejo de errores
+   - **#45:** Persistencia en localStorage y mejoras de UX
+   - **#46:** Configurar deployment en Render
+2. **Performance Tuning:** Caché de queries frecuentes, optimización de prompts (futuro).
