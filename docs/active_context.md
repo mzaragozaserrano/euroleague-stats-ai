@@ -1,9 +1,9 @@
 # Active Context
 
 ## Current Focus
-**#47: 3.4 Frontend - API Integration** (COMPLETADO ✓)
+**#45: 3.5 Frontend - Persistence & UX Enhancements** (COMPLETADO ✓)
 
-Integracion completa del frontend con el endpoint /api/chat del backend, con manejo robusto de errores, reintentos automaticos, deteccion de cold starts y rate limits.
+Mejoras de persistencia robusta y UX con manejo de estados de carga, advertencias de rate limits, cold start indicators y optimizaciones de rendimiento.
 
 ## Recent Decisions & Achievements
 - **ETL Completed:** We have a robust, tested ETL pipeline running daily on GitHub Actions.
@@ -100,9 +100,39 @@ Integracion completa del frontend con el endpoint /api/chat del backend, con man
    - `backend/tests/features/chat_api_integration.feature` (86 líneas)
 7. **Documentation:** `README_API_INTEGRATION.md` con guías y ejemplos. ✓
 
+## Completed in Issue #45
+1. **Zustand Store Mejorado:** `frontend/stores/chatStore.ts` v2. ✓
+   - Nuevos campos: `lastCleared`, `totalQueriesCount`
+   - Nueva acción: `clearHistory(confirmClear)` con validación
+   - Nueva acción: `dismissWarnings()` para cerrar ambas advertencias
+   - Nueva acción: `getHistoryMetadata()` para debugging
+   - Migración automática v1 → v2 con preservación de datos
+2. **ChatContainer Mejorado:** Botón "Limpiar Historial" con confirmación. ✓
+   - Solo visible cuando hay mensajes
+   - States: normal → confirmación → cancelable
+   - Advertencias con botón cierre (×)
+   - UX mejorada para desktop + móvil
+3. **ChatInput con Debounce:** 300ms para evitar múltiples envíos. ✓
+   - Autoexpansión textarea (max: 120px)
+   - Nuevo flag `isSubmitting` para prevenir double-submit
+   - Timer cleanup automático
+4. **BDD Tests Completos:** 12 escenarios en `persistence_ux.feature`. ✓
+   - Persistencia a través de recargas
+   - Limpieza de historial
+   - Cold start warnings (>3s)
+   - Rate limit handling
+   - Debounce functionality
+   - Version migration (v1 → v2)
+   - Transient state management
+5. **Documentation:** `README_PERSISTENCE_UX.md` con arquitectura y flujos. ✓
+   - 276 líneas de guía completa
+   - Diagramas de flujo y persistencia
+   - Performance optimizations documentadas
+   - Testing instructions incluidas
+
 ## Next Steps (Immediate)
-1. **Phase 3 Frontend (Continuación):**
-   - **#45:** Persistencia mejorada en localStorage y mejoras de UX
+1. **Phase 3 Frontend (Completada):**
+   - **#45:** Persistencia mejorada en localStorage y mejoras de UX ✓ DONE
    - **#46:** Configurar deployment en Render (backend + frontend)
 2. **Phase 4 - Post MVP:**
    - Performance Tuning: Caché de queries frecuentes
