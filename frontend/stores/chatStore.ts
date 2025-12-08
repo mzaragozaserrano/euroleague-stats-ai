@@ -205,123 +205,29 @@ export const useChatStore = create<ChatStore>()(
           let isColdStart = false;
           let isRateLimit = false;
 
-          // 3. Manejar según tipo
-          if (queryType === "top_players") {
-            console.log('[ChatStore] Manejando consulta de top players en frontend');
-            
-            const params = extractParams(userQuery.trim());
-            const startTime = Date.now();
-            
-            try {
-              const stats = await EuroleagueApi.getTopPlayers(
-                params.seasonCode,
-                params.stat,
-                params.topN,
-                params.teamCode
-              );
-              
-              const latencyMs = Date.now() - startTime;
-              if (latencyMs > 3000) {
-                isColdStart = true;
-              }
-              
-              response = {
-                data: stats,
-                visualization: "bar",
-                sql: null,
-                error: null,
-              };
-            } catch (error) {
-              throw error;
-            }
-          } else if (queryType === "player_lookup") {
-            console.log('[ChatStore] Manejando consulta de búsqueda de jugador en frontend');
-            
-            const playerName = extractPlayerName(userQuery.trim());
-            const startTime = Date.now();
-            
-            if (!playerName) {
-              throw new Error('No se pudo extraer el nombre del jugador');
-            }
-            
-            try {
-              const player = await EuroleagueApi.searchPlayer("E2025", playerName);
-              
-              const latencyMs = Date.now() - startTime;
-              if (latencyMs > 3000) {
-                isColdStart = true;
-              }
-              
-              if (!player) {
-                throw new Error(`No se encontró el jugador: ${playerName}`);
-              }
-              
-              response = {
-                data: [player],
-                visualization: "table",
-                sql: null,
-                error: null,
-              };
-            } catch (error) {
-              throw error;
-            }
-          } else if (queryType === "comparison") {
-            console.log('[ChatStore] Manejando consulta de comparación en frontend');
-            
-            const players = extractPlayerNamesForComparison(userQuery.trim());
-            const startTime = Date.now();
-            
-            if (!players) {
-              throw new Error('No se pudieron extraer los nombres de los jugadores para comparación');
-            }
-            
-            try {
-              const [player1, player2] = await EuroleagueApi.comparePlayers(
-                "E2025",
-                players[0],
-                players[1]
-              );
-              
-              const latencyMs = Date.now() - startTime;
-              if (latencyMs > 3000) {
-                isColdStart = true;
-              }
-              
-              const comparisonData = [];
-              if (player1) comparisonData.push(player1);
-              if (player2) comparisonData.push(player2);
-              
-              if (comparisonData.length === 0) {
-                throw new Error(`No se encontraron los jugadores: ${players.join(' vs ')}`);
-              }
-              
-              response = {
-                data: comparisonData,
-                visualization: "bar",
-                sql: null,
-                error: null,
-              };
-            } catch (error) {
-              throw error;
-            }
-          } else {
-            // Consulta general → usar backend
-            console.log('[ChatStore] Manejando consulta general en backend');
-            
-            const backendHistory = state.history.map((msg) => ({
-              role: msg.role,
-              content: msg.content,
-            }));
+          // NUEVA ESTRATEGIA SIMPLIFICADA:
+          // Todas las consultas van al backend, que es quien tiene acceso a:
+          // - La API real de Euroleague (manejo de XML, CORS, etc)
+          // - El servicio PlayerStatsService con caché Redis
+          // - El servicio Text-to-SQL para generar queries
+          
+          // El frontend ya no intenta llamar directamente a la API de Euroleague
+          
+          const backendHistory = state.history.map((msg) => ({
+            role: msg.role,
+            content: msg.content,
+          }));
 
-            const result = await sendChatMessage(
-              userQuery.trim(),
-              backendHistory
-            );
+          const result = await sendChatMessage(
+            userQuery.trim(),
+            backendHistory
+          );
 
-            response = result.response;
-            isColdStart = result.isColdStart;
-            isRateLimit = result.isRateLimit;
-          }
+          response = result.response;
+          isColdStart = result.isColdStart;
+          isRateLimit = result.isRateLimit;
+          
+          const { latencyMs } = result;
 
           // Detectar warnings
           if (isColdStart) {
