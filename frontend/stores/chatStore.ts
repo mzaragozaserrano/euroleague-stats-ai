@@ -25,16 +25,20 @@ export interface ChatStore {
   error: string | null;
   coldStartWarning: boolean;
   rateLimitWarning: boolean;
+  lastCleared?: number; // Timestamp de última limpieza
+  totalQueriesCount?: number; // Contador de queries totales
 
   // Acciones
   addMessage: (message: ChatMessage) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   clearError: () => void;
-  clearHistory: () => void;
+  clearHistory: (confirmClear?: boolean) => boolean; // Retorna true si se limpió
   setColdStartWarning: (show: boolean) => void;
   setRateLimitWarning: (show: boolean) => void;
   getMessageCount: () => number;
+  getHistoryMetadata: () => { messageCount: number; lastMessageTime: number | null };
+  dismissWarnings: () => void; // Cerrar ambas advertencias
   
   // Nueva acción para enviar mensaje al backend
   sendMessage: (userQuery: string) => Promise<void>;
@@ -50,6 +54,8 @@ export const useChatStore = create<ChatStore>()(
       error: null,
       coldStartWarning: false,
       rateLimitWarning: false,
+      lastCleared: undefined,
+      totalQueriesCount: 0,
 
       // Acciones
       addMessage: (message: ChatMessage) =>
@@ -76,13 +82,31 @@ export const useChatStore = create<ChatStore>()(
           error: null,
         }),
 
-      clearHistory: () =>
-        set({
-          messages: [],
-          history: [],
-          error: null,
-          isLoading: false,
-        }),
+      /**
+       * Limpia el historial de mensajes con validación.
+       * Retorna true si la limpieza fue exitosa, false si fue rechazada.
+       */
+      clearHistory: (confirmClear = false) => {
+        if (get().messages.length === 0) {
+          return false; // No hay nada que limpiar
+        }
+
+        // En producción, podría haber una confirmación adicional
+        if (confirmClear) {
+          set({
+            messages: [],
+            history: [],
+            error: null,
+            isLoading: false,
+            coldStartWarning: false,
+            rateLimitWarning: false,
+            lastCleared: Date.now(),
+          });
+          return true;
+        }
+
+        return false;
+      },
 
       setColdStartWarning: (show: boolean) =>
         set({
@@ -94,7 +118,28 @@ export const useChatStore = create<ChatStore>()(
           rateLimitWarning: show,
         }),
 
+      /**
+       * Cierra ambas advertencias de una vez.
+       */
+      dismissWarnings: () =>
+        set({
+          coldStartWarning: false,
+          rateLimitWarning: false,
+        }),
+
       getMessageCount: () => get().messages.length,
+
+      /**
+       * Retorna metadata del historial para debugging y análisis.
+       */
+      getHistoryMetadata: () => {
+        const state = get();
+        const lastMessage = state.messages[state.messages.length - 1];
+        return {
+          messageCount: state.messages.length,
+          lastMessageTime: lastMessage?.timestamp || null,
+        };
+      },
 
       /**
        * Envía un mensaje al backend y maneja la respuesta.
@@ -103,6 +148,7 @@ export const useChatStore = create<ChatStore>()(
        * 2. Llama a sendChatMessage() con el historial
        * 3. Maneja cold starts (>3s) y rate limits
        * 4. Agrega respuesta del asistente al historial
+       * 5. Incrementa contador de queries
        */
       sendMessage: async (userQuery: string) => {
         const state = get();
@@ -128,6 +174,7 @@ export const useChatStore = create<ChatStore>()(
           error: null,
           coldStartWarning: false,
           rateLimitWarning: false,
+          totalQueriesCount: (state.totalQueriesCount || 0) + 1,
         }));
 
         try {
@@ -207,12 +254,30 @@ export const useChatStore = create<ChatStore>()(
     }),
     {
       name: 'chat-storage', // localStorage key
-      version: 1,
+      version: 2, // Incrementado para mejor versionado
       // Seleccionar qué estado persistir
       partialize: (state) => ({
         history: state.history,
         messages: state.messages,
+        lastCleared: state.lastCleared,
+        totalQueriesCount: state.totalQueriesCount,
       }),
+      // Migración de versiones antiguas (v1 -> v2)
+      migrate: (persistedState: any, version: number) => {
+        if (version === 0 || version === 1) {
+          // v1 solo tiene history y messages, los otros campos se inicializan a defaults
+          return {
+            ...persistedState,
+            isLoading: false,
+            error: null,
+            coldStartWarning: false,
+            rateLimitWarning: false,
+            lastCleared: undefined,
+            totalQueriesCount: persistedState.totalQueriesCount || 0,
+          };
+        }
+        return persistedState;
+      },
     }
   )
 );
