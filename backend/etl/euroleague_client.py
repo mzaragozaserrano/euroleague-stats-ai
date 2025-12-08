@@ -20,6 +20,7 @@ Este cliente maneja:
 import httpx
 import logging
 import time
+import xmltodict
 from typing import Optional, Dict, Any, List
 from urllib.parse import urljoin
 
@@ -70,20 +71,19 @@ class EuroleagueClient:
     """
 
     # URL base de la API de Euroleague
-    # NOTA: La API pública de Euroleague no está disponible actualmente
-    # Se intentó: api-live.euroleague.net (404), live.euroleague.net/api (404 en endpoints)
-    # TODO: Investigar API oficial o usar scraping alternativo
-    BASE_URL = "https://live.euroleague.net/api"
+    # Documentación: https://api-live.euroleague.net/swagger/index.html
+    # NOTA: La API retorna XML, no JSON
+    BASE_URL = "https://api-live.euroleague.net"
 
-    # Endpoints principales
-    # NOTA: La API puede no soportar v3, probar sin versión o con v2
+    # Endpoints principales (v1)
+    # Referencia: https://api-live.euroleague.net/swagger/index.html
     ENDPOINTS = {
-        "teams": "/teams",  # Sin versión, la API puede determinar automáticamente
-        "players": "/players",
-        "games": "/games",
-        "playerstats": "/playerstats",
-        "standings": "/standings",
-        "teamstats": "/teamstats",
+        "teams": "/v1/teams",
+        "players": "/v1/players", 
+        "games": "/v1/games",
+        "playerstats": "/v1/playerstats",
+        "standings": "/v1/standings",
+        "teamstats": "/v1/teamstats",
     }
 
     # Configuración de reintentos
@@ -116,9 +116,10 @@ class EuroleagueClient:
         self.timeout = timeout or self.REQUEST_TIMEOUT
 
         # Headers por defecto
+        # NOTA: La API retorna XML, no JSON
         self.headers = {
             "User-Agent": "EuroleagueStatsAI/1.0",
-            "Accept": "application/json",
+            "Accept": "application/xml",
         }
 
         # Añadir autenticación si se proporciona API key
@@ -173,7 +174,15 @@ class EuroleagueClient:
                     # Verificar si la respuesta fue exitosa
                     if response.status_code == 200:
                         logger.debug(f"Respuesta exitosa de {url}")
-                        return response.json()
+                        # La API retorna XML, convertir a diccionario
+                        try:
+                            xml_dict = xmltodict.parse(response.text)
+                            return xml_dict
+                        except Exception as e:
+                            logger.error(f"Error parseando XML: {e}")
+                            raise EuroleagueAPIError(
+                                f"Error parseando respuesta XML: {str(e)}"
+                            )
 
                     # Manejo de errores específicos
                     if response.status_code == 429:

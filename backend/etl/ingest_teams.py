@@ -81,13 +81,15 @@ def validate_team_data(team_data: Dict[str, Any]) -> bool:
     Validar que los datos del equipo contienen los campos requeridos.
 
     Args:
-        team_data: Diccionario con datos del equipo
+        team_data: Diccionario con datos del equipo (XML parseado)
 
     Returns:
         True si los datos son válidos, False si faltan campos requeridos.
     """
-    required_fields = ["id", "name", "code"]
-    return all(field in team_data for field in required_fields)
+    # La API XML usa @code para atributos
+    has_code = "@code" in team_data or "code" in team_data
+    has_name = "clubname" in team_data or "name" in team_data
+    return has_code and has_name
 
 
 def transform_team_data(api_team: Dict[str, Any]) -> Dict[str, Any]:
@@ -95,7 +97,7 @@ def transform_team_data(api_team: Dict[str, Any]) -> Dict[str, Any]:
     Transformar datos de equipo desde el formato de API al formato del modelo SQLAlchemy.
 
     Args:
-        api_team: Diccionario con datos del equipo desde la API
+        api_team: Diccionario con datos del equipo desde la API (XML parseado)
 
     Returns:
         Diccionario con datos transformados para el modelo Team
@@ -104,20 +106,23 @@ def transform_team_data(api_team: Dict[str, Any]) -> Dict[str, Any]:
         TeamTransformationError: Si la transformación falla
     """
     try:
-        # Validar datos requeridos
-        if not validate_team_data(api_team):
+        # La API retorna XML donde los atributos tienen prefijo @
+        # Ejemplo: {"@code": "IST", "name": "Anadolu Efes Istanbul", ...}
+        code = api_team.get("@code") or api_team.get("code")
+        name = api_team.get("clubname") or api_team.get("name")
+        
+        if not code or not name:
             logger.warning(f"Equipo con datos incompletos: {api_team}. Se usarán valores por defecto.")
-            # Retornar con valores por defecto para campos faltantes
             return {
-                "code": api_team.get("code", "UNKNOWN"),
-                "name": api_team.get("name", "Unknown Team"),
-                "logo_url": api_team.get("logo_url", None),
+                "code": code or "UNKNOWN",
+                "name": name or "Unknown Team",
+                "logo_url": None,
             }
 
         transformed = {
-            "code": str(api_team["code"]),
-            "name": str(api_team["name"]),
-            "logo_url": api_team.get("logo_url", None),
+            "code": str(code),
+            "name": str(name),
+            "logo_url": None,  # La API no proporciona logo_url directamente
         }
 
         # Validar que el código y nombre no estén vacíos
@@ -234,10 +239,17 @@ async def ingest_teams(
         api_response = await fetch_teams_from_api(client)
 
         # Extraer lista de equipos de la respuesta
-        teams_list = api_response.get("Teams", [])
+        # La API retorna XML con estructura: clubs -> club (lista)
+        clubs_data = api_response.get("clubs", {})
+        teams_list = clubs_data.get("club", [])
+        
         if not teams_list:
-            logger.warning("La API no retornó equipos. Respuesta: {api_response}")
+            logger.warning(f"La API no retornó equipos. Respuesta: {api_response}")
             return {**stats, "status": "no_teams_found"}
+        
+        # Asegurar que teams_list es una lista
+        if not isinstance(teams_list, list):
+            teams_list = [teams_list]
 
         logger.info(f"Se obtuvieron {len(teams_list)} equipos de la API")
 

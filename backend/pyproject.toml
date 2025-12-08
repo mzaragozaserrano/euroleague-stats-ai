@@ -21,6 +21,7 @@ pgvector = ">=0.4.1,<0.5.0"
 slowapi = ">=0.1.9,<0.2.0"
 python-multipart = ">=0.0.20,<0.0.21"
 mcp = ">=0.1.0,<1.0.0"
+xmltodict = "^1.0.2"
 
 
 [tool.poetry.group.dev.dependencies]
