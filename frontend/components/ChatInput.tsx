@@ -90,24 +90,33 @@ export function ChatInput({ onSubmit, disabled = false, debounceMs = 300 }: Chat
 
   return (
     <form onSubmit={handleSubmit} className="w-full">
-      <div className="flex gap-2 items-end">
-        <textarea
-          ref={textareaRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Haz una pregunta sobre estadísticas de Euroliga..."
-          disabled={isLoading || disabled || isSubmitting}
-          rows={1}
-          className="flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-base text-gray-900 ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm min-h-10 max-h-[120px]"
-        />
+      <div className="flex gap-3 items-end">
+        <div className="flex-1 relative">
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Haz una pregunta sobre estadísticas de Euroliga..."
+            disabled={isLoading || disabled || isSubmitting}
+            rows={1}
+            className="w-full resize-none rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-base text-slate-900 dark:text-slate-100 ring-offset-background placeholder:text-slate-500 dark:placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm min-h-12 max-h-[120px] font-light shadow-sm hover:border-slate-300 dark:hover:border-slate-600 transition-colors"
+          />
+        </div>
         <Button
           type="submit"
           disabled={!input.trim() || isLoading || disabled || isSubmitting}
           size="default"
-          className="mb-0"
+          className="mb-0 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 dark:from-blue-500 dark:to-blue-600 dark:hover:from-blue-600 dark:hover:to-blue-700 text-white font-semibold shadow-lg hover:shadow-xl hover:shadow-blue-500/30 dark:hover:shadow-blue-500/20 transition-all duration-200 disabled:shadow-none disabled:opacity-60 rounded-xl px-6 py-2.5 min-h-12"
         >
-          {isLoading || isSubmitting ? 'Enviando...' : 'Enviar'}
+          {isLoading || isSubmitting ? (
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <span>Enviando</span>
+            </div>
+          ) : (
+            'Enviar'
+          )}
         </Button>
       </div>
     </form>

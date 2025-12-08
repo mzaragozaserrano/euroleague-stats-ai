@@ -40,26 +40,29 @@ export function ChatContainer({ onSendMessage }: ChatContainerProps) {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card px-4 py-3 md:px-6 md:py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
+    <div className="flex flex-col h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-950 dark:to-slate-900">
+      {/* Header - Refined */}
+      <header className="border-b border-slate-200/50 dark:border-slate-700/50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm px-4 py-4 md:px-6 md:py-5 shadow-sm">
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex-1">
-            <h1 className="text-xl md:text-2xl font-bold">Euroleague AI Stats</h1>
-            <p className="text-xs md:text-sm text-muted-foreground">
-              Consulta estadísticas de la Euroliga en lenguaje natural
+            <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-400 dark:to-blue-300 bg-clip-text text-transparent">
+              Euroleague AI Stats
+            </h1>
+            <p className="text-sm md:text-base text-slate-600 dark:text-slate-400 mt-1 font-light">
+              Consulta estadísticas en lenguaje natural
             </p>
           </div>
           
           {/* Clear history button */}
           {messages.length > 0 && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 ml-4">
               {showClearConfirm ? (
-                <div className="flex gap-2 animate-in fade-in-50 duration-200">
+                <div className="flex gap-2 animate-fade-in">
                   <Button
                     size="sm"
                     variant="destructive"
                     onClick={handleClearHistory}
+                    className="text-xs md:text-sm"
                   >
                     Confirmar
                   </Button>
@@ -67,6 +70,7 @@ export function ChatContainer({ onSendMessage }: ChatContainerProps) {
                     size="sm"
                     variant="outline"
                     onClick={() => setShowClearConfirm(false)}
+                    className="text-xs md:text-sm"
                   >
                     Cancelar
                   </Button>
@@ -76,10 +80,10 @@ export function ChatContainer({ onSendMessage }: ChatContainerProps) {
                   size="sm"
                   variant="ghost"
                   onClick={() => setShowClearConfirm(true)}
-                  className="gap-1"
+                  className="gap-1.5 text-slate-600 dark:text-slate-400 hover:bg-red-50/50 dark:hover:bg-red-950/20 hover:text-red-600 dark:hover:text-red-400 transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
-                  <span className="hidden sm:inline">Limpiar</span>
+                  <span className="hidden sm:inline text-xs md:text-sm">Limpiar</span>
                 </Button>
               )}
             </div>
@@ -87,19 +91,19 @@ export function ChatContainer({ onSendMessage }: ChatContainerProps) {
         </div>
       </header>
 
-      {/* Warnings */}
+      {/* Warnings - Refined */}
       {(coldStartWarning || rateLimitWarning) && (
-        <div className="px-4 py-2 md:px-6 md:py-3 bg-yellow-50 dark:bg-yellow-950 border-b">
-          <div className="max-w-4xl mx-auto space-y-2">
+        <div className="px-4 py-3 md:px-6 md:py-4 bg-amber-50/90 dark:bg-amber-950/30 border-b border-amber-200/50 dark:border-amber-800/30 backdrop-blur-sm">
+          <div className="max-w-5xl mx-auto space-y-2">
             {coldStartWarning && (
-              <div className="flex items-start gap-2 text-sm md:text-base text-yellow-800 dark:text-yellow-200 justify-between">
-                <div className="flex items-start gap-2">
-                  <Clock className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <p>Despertando al agente... (primera consulta puede tardar 3+ segundos)</p>
+              <div className="flex items-start gap-3 text-sm md:text-base text-amber-800 dark:text-amber-200 justify-between">
+                <div className="flex items-start gap-3">
+                  <Clock className="w-5 h-5 mt-0.5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+                  <p className="font-medium">Despertando al agente... (primera consulta puede tardar 3+ segundos)</p>
                 </div>
                 <button
                   onClick={() => dismissWarnings()}
-                  className="text-yellow-700 dark:text-yellow-300 hover:opacity-75 flex-shrink-0"
+                  className="text-amber-700 dark:text-amber-300 hover:opacity-75 flex-shrink-0 text-lg"
                   aria-label="Cerrar advertencia"
                 >
                   ×
@@ -107,14 +111,14 @@ export function ChatContainer({ onSendMessage }: ChatContainerProps) {
               </div>
             )}
             {rateLimitWarning && (
-              <div className="flex items-start gap-2 text-sm md:text-base text-yellow-800 dark:text-yellow-200 justify-between">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <p>Se alcanzó límite de consultas (50/día). Vuelve mañana para más preguntas.</p>
+              <div className="flex items-start gap-3 text-sm md:text-base text-amber-800 dark:text-amber-200 justify-between">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+                  <p className="font-medium">Se alcanzó límite de consultas (50/día). Vuelve mañana para más preguntas.</p>
                 </div>
                 <button
                   onClick={() => dismissWarnings()}
-                  className="text-yellow-700 dark:text-yellow-300 hover:opacity-75 flex-shrink-0"
+                  className="text-amber-700 dark:text-amber-300 hover:opacity-75 flex-shrink-0 text-lg"
                   aria-label="Cerrar advertencia"
                 >
                   ×
@@ -125,14 +129,14 @@ export function ChatContainer({ onSendMessage }: ChatContainerProps) {
         </div>
       )}
 
-      {/* Global error */}
+      {/* Global error - Refined */}
       {error && (
-        <div className="px-4 py-3 md:px-6 md:py-4 bg-destructive/10 border-b border-destructive/20">
-          <div className="max-w-4xl mx-auto flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+        <div className="px-4 py-4 md:px-6 md:py-5 bg-red-50/90 dark:bg-red-950/30 border-b border-red-200/50 dark:border-red-800/30 backdrop-blur-sm">
+          <div className="max-w-5xl mx-auto flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
             <div>
-              <h3 className="font-semibold text-destructive">Error</h3>
-              <p className="text-sm text-destructive/80">{error}</p>
+              <h3 className="font-semibold text-red-800 dark:text-red-200">Error</h3>
+              <p className="text-sm text-red-700/80 dark:text-red-300/80 mt-0.5">{error}</p>
             </div>
           </div>
         </div>
@@ -141,15 +145,15 @@ export function ChatContainer({ onSendMessage }: ChatContainerProps) {
       {/* Messages area */}
       <MessageList messages={messages} isLoading={isLoading} />
 
-      {/* Input area */}
-      <div className="border-t bg-card px-4 py-4 md:px-6 md:py-4">
-        <div className="max-w-4xl mx-auto">
+      {/* Input area - Refined */}
+      <div className="border-t border-slate-200/50 dark:border-slate-700/50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm px-4 py-5 md:px-6 md:py-6 shadow-lg shadow-blue-500/5">
+        <div className="max-w-5xl mx-auto">
           <ChatInput
             onSubmit={handleSendMessage}
             disabled={rateLimitWarning}
           />
-          <p className="text-xs text-muted-foreground mt-2">
-            Presiona Enter para enviar, Shift+Enter para nueva línea
+          <p className="text-xs text-slate-500 dark:text-slate-500 mt-3 font-light">
+            Presiona <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-xs font-mono border border-slate-300 dark:border-slate-600">Enter</kbd> para enviar, <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-xs font-mono border border-slate-300 dark:border-slate-600">Shift+Enter</kbd> para nueva línea
           </p>
         </div>
       </div>
