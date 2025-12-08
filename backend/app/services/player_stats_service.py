@@ -16,7 +16,7 @@ Flujo:
 import logging
 import json
 from typing import Optional, Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import redis.asyncio as redis
 from sqlalchemy import select
@@ -31,6 +31,9 @@ logger = logging.getLogger(__name__)
 
 # Template de clave de caché: playerstats:{seasoncode}
 CACHE_KEY_TEMPLATE = "playerstats:{seasoncode}"
+
+# Caché en memoria como fallback si Redis no está disponible
+MEMORY_CACHE: Dict[str, Dict[str, Any]] = {}
 
 
 class PlayerStatsServiceError(Exception):
@@ -81,8 +84,8 @@ class PlayerStatsService:
         Returns:
             Diccionario con stats por jugador:
             {
-                "DECK": {"points": 15.2, "assists": 3.1, ...},
-                "PAU": {"points": 12.8, "rebounds": 6.2, ...},
+                "006590": {"points": 15.2, "assists": 3.1, ...},
+                "006591": {"points": 12.8, "rebounds": 6.2, ...},
                 ...
             }
 
@@ -90,38 +93,57 @@ class PlayerStatsService:
             PlayerStatsServiceError: Si hay error obteniendo stats
         """
         cache_key = CACHE_KEY_TEMPLATE.format(seasoncode=seasoncode)
-        redis_client = await self._get_redis_client()
-
+        
         try:
-            # 1. Intentar obtener desde caché
+            # 1. Intentar obtener desde caché Redis
+            redis_client = await self._get_redis_client()
             cached_data = await redis_client.get(cache_key)
             if cached_data:
-                logger.info(f"Cache HIT para {seasoncode}")
+                logger.info(f"Cache HIT (Redis) para {seasoncode}")
                 return json.loads(cached_data)
+        except Exception as e:
+            logger.warning(f"Redis no disponible: {str(e)}. Usando caché en memoria...")
+            
+            # 2. Intentar obtener desde caché en memoria
+            if cache_key in MEMORY_CACHE:
+                cache_entry = MEMORY_CACHE[cache_key]
+                if datetime.now() < cache_entry.get("expires_at", datetime.now()):
+                    logger.info(f"Cache HIT (Memory) para {seasoncode}")
+                    return cache_entry["data"]
+                else:
+                    # Caché expirado
+                    del MEMORY_CACHE[cache_key]
 
-            logger.info(f"Cache MISS para {seasoncode}. Llamando API de Euroleague...")
+        logger.info(f"Cache MISS para {seasoncode}. Llamando API de Euroleague...")
 
-            # 2. Obtener códigos de jugadores desde BD
+        try:
+            # 3. Obtener códigos de jugadores desde BD
             player_codes = await self._get_player_codes_from_db()
             logger.info(f"Obteniendo stats para {len(player_codes)} jugadores...")
 
-            # 3. Llamar API para cada jugador
+            # 4. Llamar API para cada jugador
             all_stats = await self._fetch_stats_from_api(seasoncode, player_codes)
 
-            # 4. Guardar en caché por 24h
-            await redis_client.setex(cache_key, self.cache_ttl, json.dumps(all_stats))
-            logger.info(
-                f"Stats guardadas en caché: {cache_key} (TTL: {self.cache_ttl}s / 24h)"
-            )
+            # 5. Guardar en caché (Redis y memoria)
+            cache_data = json.dumps(all_stats)
+            
+            # Guardar en Redis (si está disponible)
+            try:
+                await redis_client.setex(cache_key, self.cache_ttl, cache_data)
+                logger.info(
+                    f"Stats guardadas en caché Redis: {cache_key} (TTL: {self.cache_ttl}s / 24h)"
+                )
+            except Exception as e:
+                logger.warning(f"Error guardando en Redis: {str(e)}")
+            
+            # Guardar en memoria
+            MEMORY_CACHE[cache_key] = {
+                "data": all_stats,
+                "expires_at": datetime.now() + timedelta(seconds=self.cache_ttl),
+            }
+            logger.info(f"Stats guardadas en caché en memoria: {cache_key} (TTL: {self.cache_ttl}s / 24h)")
 
             return all_stats
-
-        except redis.RedisError as e:
-            logger.error(f"Error de Redis: {str(e)}")
-            # Si Redis falla, intentar obtener directamente de API sin caché
-            logger.warning("Redis no disponible. Obteniendo stats sin caché...")
-            player_codes = await self._get_player_codes_from_db()
-            return await self._fetch_stats_from_api(seasoncode, player_codes)
 
         except Exception as e:
             logger.error(f"Error obteniendo stats: {str(e)}")
@@ -310,18 +332,21 @@ class PlayerStatsService:
 
     async def clear_cache(self, seasoncode: Optional[str] = None):
         """
-        Limpiar caché de estadísticas.
+        Limpiar caché de estadísticas (Redis y memoria).
 
         Args:
             seasoncode: Si se especifica, limpia solo esa temporada.
                        Si es None, limpia todas las temporadas.
         """
-        redis_client = await self._get_redis_client()
-
         try:
+            redis_client = await self._get_redis_client()
+            
             if seasoncode:
                 cache_key = CACHE_KEY_TEMPLATE.format(seasoncode=seasoncode)
                 await redis_client.delete(cache_key)
+                # Limpiar también de memoria
+                if cache_key in MEMORY_CACHE:
+                    del MEMORY_CACHE[cache_key]
                 logger.info(f"Caché limpiada para {seasoncode}")
             else:
                 # Limpiar todas las claves que coincidan con el patrón
@@ -329,13 +354,24 @@ class PlayerStatsService:
                 keys = await redis_client.keys(pattern)
                 if keys:
                     await redis_client.delete(*keys)
-                    logger.info(f"Caché limpiada: {len(keys)} temporadas")
-                else:
-                    logger.info("No hay caché para limpiar")
+                    logger.info(f"Caché limpiada (Redis): {len(keys)} temporadas")
+                
+                # Limpiar también memoria
+                keys_to_delete = [k for k in MEMORY_CACHE.keys() if k.startswith("playerstats:")]
+                for k in keys_to_delete:
+                    del MEMORY_CACHE[k]
+                logger.info(f"Caché limpiada (Memoria): {len(keys_to_delete)} temporadas")
 
-        except redis.RedisError as e:
-            logger.error(f"Error limpiando caché: {str(e)}")
-            raise PlayerStatsServiceError(f"Error limpiando caché: {str(e)}") from e
+        except Exception as e:
+            logger.warning(f"Error limpiando caché: {str(e)}")
+            # Intentar limpiar al menos memoria
+            if seasoncode:
+                cache_key = CACHE_KEY_TEMPLATE.format(seasoncode=seasoncode)
+                if cache_key in MEMORY_CACHE:
+                    del MEMORY_CACHE[cache_key]
+            else:
+                MEMORY_CACHE.clear()
+            logger.info("Caché limpiada (Memoria)")
 
     async def get_cache_info(self, seasoncode: str = "E2025") -> Dict[str, Any]:
         """
