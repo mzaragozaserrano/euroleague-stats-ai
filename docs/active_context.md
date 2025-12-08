@@ -1,14 +1,11 @@
 # Active Context
 
 ## Current Focus
-**#42: 3.1 Chat Interface - Store & State Management (EN PROGRESO)**
+**#42: 3.1 Chat Interface - Store & State Management (COMPLETADA)**
 
-Implementando Zustand store para gestionar el estado del chat (mensajes, historial, estados de carga).
-- **#43:** 3.2 Chat Interface - UI Components
-- **#44:** 3.3 Data Visualizer - Recharts Integration
-- **#47:** 3.4 Frontend - API Integration
-- **#45:** 3.5 Frontend - Persistence & UX Enhancements
-- **#46:** 3.6 Deployment - Render Setup
+Zustand store implementado con persistencia en localStorage y 10 pruebas BDD pasadas.
+
+Next: **#43:** 3.2 Chat Interface - UI Components
 
 ## Recent Decisions & Achievements
 - **ETL Completed:** We have a robust, tested ETL pipeline running daily on GitHub Actions.
@@ -49,6 +46,18 @@ Implementando Zustand store para gestionar el estado del chat (mensajes, histori
 3. **Verification Queries:** 10 queries de prueba en `backend/tests/mcp_verification_queries.sql`.
 4. **Documentation:** Guía completa de setup, uso y troubleshooting en README.md.
 5. **Features:** Solo operaciones SELECT/EXPLAIN permitidas, bloqueo de DROP/DELETE/UPDATE/INSERT/ALTER/CREATE.
+
+## Completed in Issue #42
+1. **Zustand Store:** `frontend/stores/chatStore.ts` con estado completo e interface TypeScript.
+   - Estado: messages[], history[], isLoading, error, coldStartWarning, rateLimitWarning
+   - Acciones: addMessage(), setLoading(), setError(), clearError(), clearHistory()
+2. **Persistencia:** localStorage usando middleware `persist` de Zustand.
+   - Historial sobrevive a cierres de tab y página refresca
+   - Selective persistence (solo history y messages)
+3. **BDD Tests:** 10 escenarios en `chat_store.feature` con step definitions completas.
+   - Validación de inicialización, agregación de mensajes, persistencia
+   - Estados de carga y errores funcionando correctamente
+4. **Test Results:** 10/10 tests pasados exitosamente
 
 ## Next Steps (Immediate)
 1. **Phase 3 Frontend (En Progreso):** 
