@@ -5,14 +5,6 @@ import {
   ChatResponse,
   getRateLimitInfo,
 } from '@/lib/api';
-import { PlayerStatsCache } from '@/lib/playerStatsCache';
-import { EuroleagueApi } from '@/lib/euroleagueApi';
-import {
-  classifyQuery,
-  extractParams,
-  extractPlayerName,
-  extractPlayerNamesForComparison,
-} from '@/lib/queryClassifier';
 
 export interface ChatMessage {
   id: string;
@@ -55,14 +47,6 @@ export interface ChatStore {
 export const useChatStore = create<ChatStore>()(
   persist(
     (set, get) => {
-      // Verificar invalidación de caché al inicializar
-      if (typeof window !== 'undefined') {
-        const wasInvalidated = PlayerStatsCache.checkAndInvalidate();
-        if (wasInvalidated) {
-          console.log('[ChatStore] Caché de stats invalidado (después de 7 AM)');
-        }
-      }
-
       return {
         // Estado inicial
         messages: [],

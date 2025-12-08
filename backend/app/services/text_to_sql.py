@@ -2,7 +2,7 @@
 Servicio Text-to-SQL con OpenRouter.
 
 Convierte consultas naturales en SQL válido usando LLM con validación de seguridad.
-Detecta consultas de estadísticas de jugadores y usa PlayerStatsService con caché.
+Detecta consultas de estadísticas de jugadores y retorna datos desde BD poblada por ETL.
 """
 
 import re
@@ -12,7 +12,6 @@ from typing import Optional, List, Dict, Any, Tuple
 from openai import AsyncOpenAI
 import httpx
 
-from app.services.player_stats_service import PlayerStatsService, PlayerStatsServiceError
 from app.models import PlayerSeasonStats
 from app.database import async_session_maker
 from sqlalchemy import select
@@ -41,7 +40,6 @@ class TextToSQLService:
             base_url=OPENROUTER_BASE_URL,
         )
         self.model = OPENROUTER_MODEL
-        self.player_stats_service = PlayerStatsService()
     
     @staticmethod
     def _requires_player_stats(query: str) -> bool:
@@ -375,7 +373,7 @@ Always respond with ONLY a JSON object. No explanation, no markdown, just JSON."
         """
         Genera SQL a partir de una consulta natural.
         
-        Detecta si la consulta requiere stats de jugadores y usa PlayerStatsService.
+        Detecta si la consulta requiere stats de jugadores y retorna datos desde BD.
         Si no, genera SQL normal.
 
         Args:
@@ -385,7 +383,7 @@ Always respond with ONLY a JSON object. No explanation, no markdown, just JSON."
 
         Returns:
             Tupla (sql, visualization_type, error_message, direct_data).
-            - Si es consulta de stats: sql=None, direct_data contiene resultados
+            - Si es consulta de stats: sql=None, direct_data contiene resultados desde BD
             - Si es SQL normal: direct_data=None, sql contiene query
             Si hay error, sql y direct_data serán None.
         """
