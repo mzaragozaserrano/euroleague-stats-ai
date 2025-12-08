@@ -1,9 +1,9 @@
 # Active Context
 
 ## Current Focus
-**#45: 3.5 Frontend - Persistence & UX Enhancements** (COMPLETADO ✓)
+**#46: 3.6 Deployment - Render Setup**
 
-Mejoras de persistencia robusta y UX con manejo de estados de carga, advertencias de rate limits, cold start indicators y optimizaciones de rendimiento.
+Configuraci$([char]0x00F3)n del deployment del frontend Next.js en Render con variables de entorno, comandos de build/start y documentaci$([char]0x00F3)n del proceso.
 
 ## Recent Decisions & Achievements
 - **ETL Completed:** We have a robust, tested ETL pipeline running daily on GitHub Actions.
