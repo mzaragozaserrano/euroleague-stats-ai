@@ -1,9 +1,9 @@
 # Active Context
 
 ## Current Focus
-**#47: 3.4 Frontend - API Integration** (EN PROGRESO)
+**#47: 3.4 Frontend - API Integration** (COMPLETADO ✓)
 
-Conectar el frontend con el endpoint /api/chat del backend, manejando errores y estados de carga.
+Integracion completa del frontend con el endpoint /api/chat del backend, con manejo robusto de errores, reintentos automaticos, deteccion de cold starts y rate limits.
 
 ## Recent Decisions & Achievements
 - **ETL Completed:** We have a robust, tested ETL pipeline running daily on GitHub Actions.
@@ -80,19 +80,32 @@ Conectar el frontend con el endpoint /api/chat del backend, manejando errores y 
    - Responsive, special characters, múltiples columnas
 4. **Documentation:** README completo con ejemplos de uso, props, casos edge.
 
-## In Progress - Issue #47
-1. **API Service:** Crear `frontend/lib/api.ts` con función `sendChatMessage()`. ✓
-2. **Environment Configuration:** Configurar URL del backend con variable de entorno `NEXT_PUBLIC_API_URL`. ✓
+## Completed in Issue #47
+1. **API Service:** `frontend/lib/api.ts` con función `sendChatMessage()`. ✓
+   - Reintentos automáticos (máximo 2) en caso de timeout
+   - Timeout de 30 segundos configurable
+   - Detección de cold starts (latencia > 3s)
+   - Detección de rate limits (50 req/día)
+   - Validación robusta de respuestas JSON
+2. **Environment Configuration:** Variable de entorno `NEXT_PUBLIC_API_URL`. ✓
 3. **Error Handling:** Manejo robusto de errores (timeout, rate limits, LLM errors). ✓
-4. **Integration:** Conectar servicio con ChatStore y componentes UI. ✓
-5. **Status Messages:** Mostrar "Despertando al Agente..." para cold starts (>3s). ✓
+4. **ChatStore Integration:** Nuevo método `sendMessage()` con flujo completo. ✓
+   - Agregación automática de mensajes user + assistant
+   - Persistencia en localStorage
+   - Flags de warning para UI
+5. **Component Updates:** `ChatContainer` integrada automáticamente. ✓
+6. **Testing:** 20+ tests unitarios y BDD scenarios. ✓
+   - `frontend/__tests__/lib/api.test.ts` (437 líneas)
+   - `frontend/__tests__/stores/chatStore.test.ts` (434 líneas)
+   - `backend/tests/features/chat_api_integration.feature` (86 líneas)
+7. **Documentation:** `README_API_INTEGRATION.md` con guías y ejemplos. ✓
 
 ## Next Steps (Immediate)
-1. **Phase 3 Frontend (En Progreso):** 
-   - **#42:** Implementar Zustand store para gestión de estado del chat
-   - **#43:** Crear componentes UI del chat con shadcn/ui (mobile-first)
-   - **#44:** Implementar visualizaciones dinámicas con Recharts (Bar/Line/Table)
-   - **#47:** Conectar frontend con backend `/api/chat` y manejo de errores
-   - **#45:** Persistencia en localStorage y mejoras de UX
-   - **#46:** Configurar deployment en Render
-2. **Performance Tuning:** Caché de queries frecuentes, optimización de prompts (futuro).
+1. **Phase 3 Frontend (Continuación):**
+   - **#45:** Persistencia mejorada en localStorage y mejoras de UX
+   - **#46:** Configurar deployment en Render (backend + frontend)
+2. **Phase 4 - Post MVP:**
+   - Performance Tuning: Caché de queries frecuentes
+   - Spatial SQL (PostGIS) para shot charts
+   - Authentication y monetización
+   - Soporte para múltiples idiomas
