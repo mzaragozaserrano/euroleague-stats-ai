@@ -17,31 +17,15 @@ export function ChatContainer({ onSendMessage }: ChatContainerProps) {
   const error = useChatStore((state) => state.error);
   const coldStartWarning = useChatStore((state) => state.coldStartWarning);
   const rateLimitWarning = useChatStore((state) => state.rateLimitWarning);
-  const setError = useChatStore((state) => state.setError);
-  const setLoading = useChatStore((state) => state.setLoading);
-  const addMessage = useChatStore((state) => state.addMessage);
+  const sendMessage = useChatStore((state) => state.sendMessage);
 
   const handleSendMessage = async (content: string) => {
-    // Add user message
-    const userMessage = {
-      id: `msg-${Date.now()}-user`,
-      role: 'user' as const,
-      content,
-      timestamp: Date.now(),
-    };
-
-    addMessage(userMessage);
-    setLoading(true);
-
-    try {
-      if (onSendMessage) {
-        await onSendMessage(content);
-      }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Error desconocido';
-      setError(errorMsg);
-    } finally {
-      setLoading(false);
+    // Si hay un callback externo, usar ese (para testing o customización)
+    if (onSendMessage) {
+      await onSendMessage(content);
+    } else {
+      // De lo contrario, usar el método sendMessage del store (integración API)
+      await sendMessage(content);
     }
   };
 
