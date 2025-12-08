@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: euroleague-ai-frontend
+    runtime: node
+    plan: free
+    buildCommand: npm run build
+    startCommand: npm start
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        value: ${BACKEND_API_URL}
+        scope: run
+      - key: NODE_ENV
+        value: production
+        scope: run
+
+# Configure autoDeploy to deploy on every push to the main branch
+autoDeploy: true
+
