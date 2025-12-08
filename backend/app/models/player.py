@@ -29,6 +29,9 @@ class Player(Base):
     player_stats = relationship(
         "PlayerStats", back_populates="player", cascade="all, delete-orphan"
     )
+    season_stats = relationship(
+        "PlayerSeasonStats", back_populates="player", cascade="all, delete-orphan"
+    )
 
     def __repr__(self):
         return f"<Player(id={self.id}, name='{self.name}', position='{self.position}')>"
