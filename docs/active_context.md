@@ -1,9 +1,9 @@
 # Active Context
 
 ## Current Focus
-**#43: 3.2 Chat Interface - UI Components**
+**#44: 3.3 Data Visualizer - Recharts Integration** (EN PROGRESO)
 
-Crear componentes UI del chat (ChatInput, MessageBubble, MessageList) con shadcn/ui siguiendo diseño mobile-first e integrando con Zustand store.
+Implementar visualizaciones dinámicas (Bar Chart, Line Chart, Table) usando Recharts según el tipo de respuesta del backend.
 
 ## Recent Decisions & Achievements
 - **ETL Completed:** We have a robust, tested ETL pipeline running daily on GitHub Actions.
@@ -56,6 +56,29 @@ Crear componentes UI del chat (ChatInput, MessageBubble, MessageList) con shadcn
    - Validación de inicialización, agregación de mensajes, persistencia
    - Estados de carga y errores funcionando correctamente
 4. **Test Results:** 10/10 tests pasados exitosamente
+
+## Completed in Issue #43
+1. **Chat UI Components:** Componentes funcionales con shadcn/ui.
+   - `ChatInput`: Input textarea con Enter para enviar, Shift+Enter para nueva línea
+   - `MessageBubble`: Renderiza mensajes con estilos diferenciados (user/assistant)
+   - `MessageList`: Scroll automático, indicador de carga
+   - `ChatContainer`: Layout principal con header, warnings, y area de input
+2. **Mobile-First Design:** Todos los componentes responsivos usando Tailwind CSS.
+3. **Zustand Integration:** Gestión de estado centralizada desde los componentes.
+
+## In Progress - Issue #44
+1. **DataVisualizer Component:** Componente principal que renderiza visualizaciones dinámicas.
+   - Soporta 3 tipos: BarChart, LineChart, DataTable
+   - Auto-detección de columnas numéricas y categóricas
+   - Manejo robusto de casos edge (datos vacíos, inválidos)
+   - Responsivo en móvil con labels rotados, scroll horizontal en tablas
+2. **MessageBubble Integration:** Actualizado para renderizar visualizaciones cuando existen.
+   - Mantiene estructura de SQL details y timestamps
+   - Renderiza DataVisualizer si data y visualization existen
+3. **BDD Tests:** 10 escenarios en `data_visualizer.feature` con step definitions.
+   - Cobertura completa: BarChart, LineChart, DataTable, edge cases
+   - Responsive, special characters, múltiples columnas
+4. **Documentation:** README completo con ejemplos de uso, props, casos edge.
 
 ## Next Steps (Immediate)
 1. **Phase 3 Frontend (En Progreso):** 
