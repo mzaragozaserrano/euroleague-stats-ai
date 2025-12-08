@@ -13,6 +13,9 @@ from openai import AsyncOpenAI
 import httpx
 
 from app.services.player_stats_service import PlayerStatsService, PlayerStatsServiceError
+from app.models import PlayerSeasonStats
+from app.database import async_session_maker
+from sqlalchemy import select
 
 logger = logging.getLogger(__name__)
 
@@ -227,6 +230,142 @@ Always respond with ONLY a JSON object. No explanation, no markdown, just JSON."
         
         return True, None
 
+    async def _extract_stats_params(self, query: str) -> Dict[str, Any]:
+        """
+        Extrae parámetros de una consulta de estadísticas.
+        
+        Retorna:
+            {
+                "seasoncode": "E2025",
+                "stat": "points|assists|rebounds|...",
+                "top_n": 10,
+                "team_code": None (opcional)
+            }
+        """
+        seasoncode = "E2025"  # Por defecto temporada actual
+        top_n = 10  # Por defecto top 10
+        stat = "points"  # Por defecto puntos
+        team_code = None
+        
+        # Detectar temporada
+        season_match = re.search(r"(E?202[0-9]|E?201[0-9])", query, re.IGNORECASE)
+        if season_match:
+            season = season_match.group(1)
+            if not season.startswith("E"):
+                season = "E" + season
+            seasoncode = season
+        
+        # Detectar número de jugadores
+        top_match = re.search(r"(\d+)\s*(primeros|máximos|top)", query, re.IGNORECASE)
+        if top_match:
+            top_n = int(top_match.group(1))
+        
+        # Detectar tipo de estadística
+        if re.search(r"anotador|puntos|points|scoring", query, re.IGNORECASE):
+            stat = "points"
+        elif re.search(r"asistencias|assists", query, re.IGNORECASE):
+            stat = "assists"
+        elif re.search(r"rebote|rebounds", query, re.IGNORECASE):
+            stat = "rebounds"
+        elif re.search(r"eficiencia|pir|rating", query, re.IGNORECASE):
+            stat = "pir"
+        
+        # Detectar equipo (si la consulta especifica uno)
+        team_patterns = [
+            r"del\s+(\w+\s*\w*)",  # "del Real Madrid"
+            r"de\s+(\w+\s*\w*)",   # "de Barcelona"
+            r"equipo\s+(\w+\s*\w*)", # "equipo Real Madrid"
+        ]
+        for pattern in team_patterns:
+            team_match = re.search(pattern, query, re.IGNORECASE)
+            if team_match:
+                team_code = team_match.group(1).strip().upper()
+                break
+        
+        return {
+            "seasoncode": seasoncode,
+            "stat": stat,
+            "top_n": top_n,
+            "team_code": team_code
+        }
+
+    async def _get_player_stats_from_db(
+        self,
+        seasoncode: str,
+        stat: str,
+        top_n: int = 10,
+        team_code: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Obtener estadísticas de jugadores desde la BD (poblada por ETL).
+        
+        Args:
+            seasoncode: Código de temporada (ej: "E2025")
+            stat: Tipo de estadística ("points", "assists", "rebounds", "pir")
+            top_n: Número de jugadores a retornar
+            team_code: Código de equipo (opcional)
+        
+        Returns:
+            Lista de diccionarios con jugadores y sus estadísticas
+        """
+        try:
+            async with async_session_maker() as session:
+                # Construir query base
+                query = select(
+                    PlayerSeasonStats.id,
+                    PlayerSeasonStats.player_id,
+                    PlayerSeasonStats.season,
+                    PlayerSeasonStats.points,
+                    PlayerSeasonStats.assists,
+                    PlayerSeasonStats.rebounds,
+                    PlayerSeasonStats.pir,
+                    PlayerSeasonStats.games_played,
+                ).where(PlayerSeasonStats.season == seasoncode)
+                
+                # Filtrar por equipo si se especifica
+                if team_code:
+                    from app.models import Player, Team
+                    query = query.join(Player).join(Team).where(
+                        Team.code == team_code
+                    )
+                
+                # Ordenar por estadística solicitada
+                if stat == "points":
+                    query = query.order_by(PlayerSeasonStats.points.desc())
+                elif stat == "assists":
+                    query = query.order_by(PlayerSeasonStats.assists.desc())
+                elif stat == "rebounds":
+                    query = query.order_by(PlayerSeasonStats.rebounds.desc())
+                elif stat == "pir":
+                    query = query.order_by(PlayerSeasonStats.pir.desc())
+                
+                # Limitar resultados
+                query = query.limit(top_n)
+                
+                # Ejecutar query
+                result = await session.execute(query)
+                rows = result.fetchall()
+                
+                # Convertir a formato JSON
+                data = []
+                for idx, row in enumerate(rows, 1):
+                    data.append({
+                        "rank": idx,
+                        "player_id": row.player_id,
+                        "season": row.season,
+                        "points": float(row.points) if row.points else 0,
+                        "assists": float(row.assists) if row.assists else 0,
+                        "rebounds": float(row.rebounds) if row.rebounds else 0,
+                        "pir": float(row.pir) if row.pir else 0,
+                        "games_played": row.games_played,
+                    })
+                
+                return data
+                
+        except Exception as e:
+            logger.error(f"Error obteniendo stats de BD: {e}")
+            raise
+
     async def generate_sql(
         self,
         query: str,
@@ -257,25 +396,26 @@ Always respond with ONLY a JSON object. No explanation, no markdown, just JSON."
             if self._requires_player_stats(query):
                 logger.info("Consulta detectada como stats de jugadores.")
                 
-                # NOTA: Las estadísticas requieren llamadas individuales a la API de Euroleague
-                # Lo cual es impracticable (349 jugadores = 349 llamadas).
-                # En su lugar, retornamos información disponible en BD
-                
-                logger.warning(
-                    "Stats en tiempo real no disponibles (requeriría 349+ llamadas a la API). "
-                    "Retornando información de jugadores disponible en BD..."
-                )
-                
-                # Retornar lista de jugadores en lugar de stats
-                return None, "table", None, [
-                    {
-                        "playerName": "Información no disponible",
-                        "note": "Las estadísticas en tiempo real requieren múltiples llamadas a la API de Euroleague. "
-                                "Este sistema actualmente almacena códigos de jugadores únicamente.",
-                        "solution": "Puedo mostrarte: 1) Lista de todos los jugadores, 2) Equipos disponibles, "
-                                   "3) Consultas que no requieran estadísticas"
-                    }
-                ]
+                try:
+                    # Extraer parámetros
+                    params = await self._extract_stats_params(query)
+                    
+                    # Obtener stats desde BD (poblada por ETL diario a las 7 AM)
+                    results = await self._get_player_stats_from_db(
+                        seasoncode=params["seasoncode"],
+                        stat=params["stat"],
+                        top_n=params["top_n"],
+                        team_code=params.get("team_code")
+                    )
+                    
+                    logger.info(f"Stats obtenidas de BD: {len(results)} jugadores")
+                    
+                    # Retornar datos directos (sin SQL)
+                    return None, "bar", None, results
+                    
+                except Exception as e:
+                    logger.error(f"Error obteniendo estadísticas: {e}")
+                    return None, None, f"Error obteniendo estadísticas: {str(e)}", None
             
             # SI NO ES STATS, CONTINUAR CON SQL NORMAL
             logger.info("Consulta normal. Generando SQL...")
