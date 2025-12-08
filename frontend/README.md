@@ -60,4 +60,19 @@ frontend/
 - Recharts
 - Zustand
 
+## Deployment
+
+### Render
+
+Ver [DEPLOYMENT_RENDER.md](./DEPLOYMENT_RENDER.md) para instrucciones completas de deployment en Render.
+
+**Configuración rápida:**
+1. Conectar repositorio GitHub a Render
+2. Configurar variables de entorno (`NEXT_PUBLIC_API_URL`)
+3. Render ejecutará automáticamente `npm run build` y `npm start`
+
+### Variables de Entorno
+
+- `NEXT_PUBLIC_API_URL`: URL del backend (ej: https://euroleague-ai-backend.onrender.com)
+
 
