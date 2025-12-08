@@ -83,8 +83,9 @@ export class EuroleagueApi {
    */
   private static async fetchFromApi(seasonCode: string): Promise<PlayerStats[]> {
     try {
-      // Endpoint real de Euroleague (ajustar según documentación oficial)
-      const url = `${EUROLEAGUE_API_BASE}/statistics/players?seasonCode=${seasonCode}`;
+      // Endpoint real de Euroleague - /v1/players con parámetro seasonCode
+      // Referencia: https://api-live.euroleague.net/swagger/index.html
+      const url = `${EUROLEAGUE_API_BASE}/players?seasonCode=${seasonCode}`;
 
       const response = await fetch(url, {
         method: 'GET',

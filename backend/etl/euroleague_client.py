@@ -80,11 +80,10 @@ class EuroleagueClient:
     # Referencia: https://api-live.euroleague.net/swagger/index.html
     ENDPOINTS = {
         "teams": "/v1/teams",
-        "players": "/v1/players", 
+        "players": "/v1/players",  # Endpoint para obtener jugadores con stats
         "standings": "/v1/standings",
         "teamstats": "/v1/teamstats",
         "games": "/v1/games",
-        "playerstats": "/v1/playerstats",
     }
 
     # Configuración de reintentos
@@ -383,7 +382,7 @@ class EuroleagueClient:
 
         Args:
             seasoncode: Código de temporada (ej: "E2025", "E2024")
-            playercode: Código del jugador (ej: "DECK", "PAU", "LLULL")
+            playercode: Código del jugador (ej: "006590") - opcional
             round_: Jornada opcional para filtrar
 
         Returns:
@@ -405,7 +404,7 @@ class EuroleagueClient:
             params["Round"] = round_
 
         return await self._make_request(
-            "GET", self.ENDPOINTS["playerstats"], params=params
+            "GET", self.ENDPOINTS["players"], params=params
         )
 
     def get_endpoint_url(self, endpoint_name: str) -> str:
