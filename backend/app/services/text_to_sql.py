@@ -255,28 +255,27 @@ Always respond with ONLY a JSON object. No explanation, no markdown, just JSON."
             
             # DETECTAR SI REQUIERE STATS DE JUGADORES
             if self._requires_player_stats(query):
-                logger.info("Consulta detectada como stats de jugadores. Usando PlayerStatsService...")
+                logger.info("Consulta detectada como stats de jugadores.")
                 
-                try:
-                    # Extraer parámetros
-                    params = await self._extract_stats_params(query)
-                    
-                    # Obtener stats usando el servicio
-                    results = await self.player_stats_service.search_top_players(
-                        seasoncode=params["seasoncode"],
-                        stat=params["stat"],
-                        top_n=params["top_n"],
-                        team_code=params["team_code"]
-                    )
-                    
-                    logger.info(f"Stats obtenidas: {len(results)} jugadores")
-                    
-                    # Retornar datos directos (sin SQL)
-                    return None, "table", None, results
-                    
-                except PlayerStatsServiceError as e:
-                    logger.error(f"Error en PlayerStatsService: {e}")
-                    return None, None, f"Error obteniendo estadísticas: {str(e)}", None
+                # NOTA: Las estadísticas requieren llamadas individuales a la API de Euroleague
+                # Lo cual es impracticable (349 jugadores = 349 llamadas).
+                # En su lugar, retornamos información disponible en BD
+                
+                logger.warning(
+                    "Stats en tiempo real no disponibles (requeriría 349+ llamadas a la API). "
+                    "Retornando información de jugadores disponible en BD..."
+                )
+                
+                # Retornar lista de jugadores en lugar de stats
+                return None, "table", None, [
+                    {
+                        "playerName": "Información no disponible",
+                        "note": "Las estadísticas en tiempo real requieren múltiples llamadas a la API de Euroleague. "
+                                "Este sistema actualmente almacena códigos de jugadores únicamente.",
+                        "solution": "Puedo mostrarte: 1) Lista de todos los jugadores, 2) Equipos disponibles, "
+                                   "3) Consultas que no requieran estadísticas"
+                    }
+                ]
             
             # SI NO ES STATS, CONTINUAR CON SQL NORMAL
             logger.info("Consulta normal. Generando SQL...")
