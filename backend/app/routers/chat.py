@@ -184,19 +184,26 @@ async def _get_schema_context(session: AsyncSession, query: str) -> str:
             )
             
             if relevant_schema and len(relevant_schema) > 0:
-                # Construir contexto con los resultados más relevantes
-                context = "SCHEMA METADATA FROM RAG (Relevant to your query):\n"
-                for item in relevant_schema:
-                    similarity = item.get("similarity", 0)
-                    content = item.get("content", "")
-                    # Solo incluir si la similitud es razonable (>= 0.3)
-                    if similarity >= 0.3:
-                        context += f"- {content}\n"
+                # Filtrar por similitud y construir contexto
+                filtered_items = [
+                    item for item in relevant_schema 
+                    if item.get("similarity", 0) >= 0.3
+                ]
                 
-                logger.info(f"Schema context construido con RAG: {len(relevant_schema)} embeddings relevantes")
-                return context
+                if filtered_items and len(filtered_items) > 0:
+                    # Construir contexto con los resultados más relevantes
+                    context = "SCHEMA METADATA FROM RAG (Relevant to your query):\n"
+                    for item in filtered_items:
+                        content = item.get("content", "")
+                        context += f"- {content}\n"
+                    
+                    logger.info(f"Schema context construido con RAG: {len(filtered_items)} embeddings relevantes (de {len(relevant_schema)} encontrados)")
+                    return context
+                else:
+                    logger.warning(f"RAG encontró {len(relevant_schema)} resultados pero ninguno con similitud >= 0.3, usando esquema por defecto")
+                    return _get_default_schema_context()
             else:
-                logger.warning("RAG no retornó resultados, usando esquema por defecto")
+                logger.warning("RAG no retornó resultados (tabla vacía o no existe), usando esquema por defecto")
                 return _get_default_schema_context()
                 
         except Exception as e:
