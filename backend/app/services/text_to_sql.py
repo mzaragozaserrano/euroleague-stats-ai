@@ -9,6 +9,7 @@ import re
 import logging
 import json
 import unicodedata
+import asyncio
 from typing import Optional, List, Dict, Any, Tuple
 from openai import AsyncOpenAI
 import httpx
@@ -17,6 +18,7 @@ from app.models import PlayerSeasonStats
 from app.database import async_session_maker
 from sqlalchemy import select, func, text
 from etl.ingest_player_season_stats import run_ingest_player_season_stats
+from etl.ingest_players import run_ingest_players
 
 logger = logging.getLogger(__name__)
 
@@ -595,13 +597,191 @@ Always respond with ONLY a JSON object. No explanation, no markdown, just JSON."
         
         return True, None
 
-    async def _ensure_season_data(self, season_code: str):
+    async def _get_stored_seasons(self) -> List[str]:
+        """
+        Obtiene la lista de temporadas almacenadas en la base de datos.
+        
+        Returns:
+            Lista de códigos de temporada (ej: ['E2025', 'E2024', 'E2023']).
+        """
+        try:
+            async with async_session_maker() as session:
+                # Obtener temporadas únicas de player_season_stats
+                stmt = text("SELECT DISTINCT season FROM player_season_stats ORDER BY season DESC")
+                result = await session.execute(stmt)
+                seasons = [row[0] for row in result.fetchall()]
+                logger.debug(f"Temporadas almacenadas: {seasons}")
+                return seasons
+        except Exception as e:
+            logger.error(f"Error obteniendo temporadas almacenadas: {e}")
+            return []
+    
+    async def _get_oldest_season(self, seasons: List[str]) -> Optional[str]:
+        """
+        Identifica la temporada más antigua de una lista de temporadas.
+        
+        Args:
+            seasons: Lista de códigos de temporada (ej: ['E2025', 'E2024', 'E2023']).
+            
+        Returns:
+            Código de la temporada más antigua, o None si la lista está vacía.
+        """
+        if not seasons:
+            return None
+        
+        # Extraer años y encontrar el mínimo
+        years = []
+        for season in seasons:
+            try:
+                year = int(season.replace("E", ""))
+                years.append((year, season))
+            except ValueError:
+                logger.warning(f"No se pudo parsear temporada: {season}")
+                continue
+        
+        if not years:
+            return None
+        
+        # Retornar la temporada con el año más pequeño
+        oldest = min(years, key=lambda x: x[0])
+        return oldest[1]
+    
+    async def _get_seasons_to_delete(self, stored_seasons: List[str], max_seasons: int = 3) -> List[str]:
+        """
+        Identifica qué temporadas deben borrarse para mantener solo las más recientes.
+        
+        Si hay más de max_seasons temporadas, retorna las más antiguas que deben borrarse.
+        
+        Args:
+            stored_seasons: Lista de códigos de temporada almacenadas.
+            max_seasons: Número máximo de temporadas a mantener (default: 3).
+            
+        Returns:
+            Lista de códigos de temporada a borrar (las más antiguas).
+        """
+        if len(stored_seasons) <= max_seasons:
+            return []
+        
+        # Extraer años y ordenar de más reciente a más antigua
+        seasons_with_years = []
+        for season in stored_seasons:
+            try:
+                year = int(season.replace("E", ""))
+                seasons_with_years.append((year, season))
+            except ValueError:
+                logger.warning(f"No se pudo parsear temporada: {season}")
+                continue
+        
+        if not seasons_with_years:
+            return []
+        
+        # Ordenar por año descendente (más reciente primero)
+        seasons_with_years.sort(key=lambda x: x[0], reverse=True)
+        
+        # Las temporadas a borrar son las que están después de las max_seasons más recientes
+        seasons_to_delete = [season for _, season in seasons_with_years[max_seasons:]]
+        
+        logger.info(f"Temporadas almacenadas: {len(stored_seasons)}, máximo permitido: {max_seasons}")
+        logger.info(f"Temporadas a mantener (más recientes): {[s for _, s in seasons_with_years[:max_seasons]]}")
+        logger.info(f"Temporadas a borrar (más antiguas): {seasons_to_delete}")
+        
+        return seasons_to_delete
+    
+    async def _cleanup_old_seasons(self, max_seasons: int = 3):
+        """
+        Limpia temporadas antiguas para mantener solo las más recientes.
+        Se ejecuta en background después de responder al usuario.
+        
+        Args:
+            max_seasons: Número máximo de temporadas a mantener (default: 3).
+        """
+        try:
+            stored_seasons = await self._get_stored_seasons()
+            seasons_to_delete = await self._get_seasons_to_delete(stored_seasons, max_seasons)
+            
+            if not seasons_to_delete:
+                logger.debug("No hay temporadas que borrar. Límite respetado.")
+                return
+            
+            logger.info(f"Iniciando limpieza de {len(seasons_to_delete)} temporada(s) antigua(s)...")
+            
+            # Borrar cada temporada antigua
+            for season_code in seasons_to_delete:
+                try:
+                    await self._delete_season_data(season_code)
+                    logger.info(f"Temporada {season_code} borrada exitosamente")
+                except Exception as e:
+                    logger.error(f"Error borrando temporada {season_code}: {e}")
+                    # Continuar con las demás temporadas aunque una falle
+            
+            logger.info(f"Limpieza completada. Se mantienen las {max_seasons} temporadas más recientes.")
+            
+        except Exception as e:
+            logger.error(f"Error en limpieza de temporadas antiguas: {e}")
+            # No lanzar excepción para que no afecte al flujo principal
+    
+    async def _delete_season_data(self, season_code: str):
+        """
+        Borra todos los datos de una temporada específica de todas las tablas relevantes.
+        
+        Tablas afectadas:
+        - player_season_stats: season (String: E2025, etc.)
+        - players: season (String: E2025, etc.)
+        - games: season (Integer: 2025, etc.)
+        
+        Args:
+            season_code: Código de temporada a borrar (ej: 'E2024').
+        """
+        try:
+            # Extraer año para games (Integer)
+            year = int(season_code.replace("E", ""))
+            
+            async with async_session_maker() as session:
+                logger.info(f"Iniciando borrado de datos de temporada {season_code}...")
+                
+                # Borrar player_season_stats
+                stmt = text("DELETE FROM player_season_stats WHERE season = :season")
+                result = await session.execute(stmt, {"season": season_code})
+                stats_deleted = result.rowcount
+                logger.info(f"Borrados {stats_deleted} registros de player_season_stats")
+                
+                # Borrar players
+                stmt = text("DELETE FROM players WHERE season = :season")
+                result = await session.execute(stmt, {"season": season_code})
+                players_deleted = result.rowcount
+                logger.info(f"Borrados {players_deleted} registros de players")
+                
+                # Borrar games (usa Integer, no String)
+                stmt = text("DELETE FROM games WHERE season = :season")
+                result = await session.execute(stmt, {"season": year})
+                games_deleted = result.rowcount
+                logger.info(f"Borrados {games_deleted} registros de games")
+                
+                # Commit
+                await session.commit()
+                logger.info(f"Borrado completado para temporada {season_code}: {stats_deleted} stats, {players_deleted} players, {games_deleted} games")
+                
+        except Exception as e:
+            logger.error(f"Error borrando datos de temporada {season_code}: {e}")
+            try:
+                await session.rollback()
+            except Exception:
+                pass
+            raise
+
+    async def _ensure_season_data(self, season_code: str) -> bool:
         """
         Verifica si existen datos para la temporada solicitada.
         Si no existen, ejecuta la ingesta (ETL) bajo demanda.
         
+        La limpieza de temporadas antiguas se ejecuta después de responder al usuario
+        (en background) para no retrasar la respuesta.
+        
         Args:
             season_code: Código de temporada (ej: 'E2024').
+            
+        Returns:
+            True si se añadió una nueva temporada, False si ya existía.
         """
         try:
             # Extraer año (E2024 -> 2024)
@@ -616,19 +796,24 @@ Always respond with ONLY a JSON object. No explanation, no markdown, just JSON."
                 
             if exists:
                 logger.debug(f"Datos encontrados para temporada {season_code}")
-                return
+                return False
 
             logger.info(f"Datos NO encontrados para temporada {season_code}. Iniciando ingesta bajo demanda...")
             
-            # Ejecutar ETL
+            # Ejecutar ETL para la nueva temporada (sin borrar antes)
             # Nota: Esto puede tardar unos segundos
+            # Primero ingerir jugadores (necesarios para las stats)
+            await run_ingest_players(season=year)
+            # Luego ingerir estadísticas
             await run_ingest_player_season_stats(season=year)
             
             logger.info(f"Ingesta bajo demanda completada para {season_code}")
+            return True  # Se añadió una nueva temporada
             
         except Exception as e:
             logger.error(f"Error en ingesta bajo demanda para {season_code}: {e}")
             # No lanzamos excepción para permitir que el flujo continúe (aunque probablemente devolverá 0 resultados)
+            return False
 
     async def _extract_stats_params(self, query: str) -> Dict[str, Any]:
         """
@@ -876,7 +1061,7 @@ Always respond with ONLY a JSON object. No explanation, no markdown, just JSON."
                         # Continuar con el flujo de SQL normal (más abajo)
                     else:
                         # VERIFICACIÓN DE INGESTA BAJO DEMANDA
-                        await self._ensure_season_data(params["seasoncode"])
+                        season_added = await self._ensure_season_data(params["seasoncode"])
                         
                         # Obtener stats desde BD (poblada por ETL diario a las 7 AM)
                         results = await self._get_player_stats_from_db(
@@ -887,6 +1072,10 @@ Always respond with ONLY a JSON object. No explanation, no markdown, just JSON."
                         )
                         
                         logger.info(f"Stats obtenidas de BD: {len(results)} jugadores")
+                        
+                        # Si se añadió una temporada nueva, ejecutar limpieza en background
+                        if season_added:
+                            asyncio.create_task(self._cleanup_old_seasons(max_seasons=3))
                         
                         # Retornar datos directos (sin SQL)
                         return None, "bar", None, results
@@ -900,11 +1089,12 @@ Always respond with ONLY a JSON object. No explanation, no markdown, just JSON."
             
             # DETECCION PROACTIVA DE TEMPORADA PARA INGESTA BAJO DEMANDA
             # Incluso si va a LLM, necesitamos asegurar que los datos existan
+            season_added = False
             try:
                 # Usamos la misma lógica de extracción para encontrar la temporada
                 # Si el usuario menciona una temporada específica (ej: "2024"), esto asegurará que esté cargada
                 temp_params = await self._extract_stats_params(query)
-                await self._ensure_season_data(temp_params["seasoncode"])
+                season_added = await self._ensure_season_data(temp_params["seasoncode"])
             except Exception as e:
                 logger.warning(f"Fallo en chequeo proactivo de temporada: {e}")
             
@@ -1140,6 +1330,11 @@ Always respond with ONLY a JSON object. No explanation, no markdown, just JSON."
                                 break
 
             logger.info(f"SQL generado exitosamente: {sql}")
+            
+            # Si se añadió una temporada nueva, ejecutar limpieza en background
+            if season_added:
+                asyncio.create_task(self._cleanup_old_seasons(max_seasons=3))
+            
             return sql, visualization_type, None, None
         
         except httpx.TimeoutException:
