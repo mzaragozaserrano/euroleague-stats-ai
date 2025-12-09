@@ -117,7 +117,7 @@ OPENAI_API_KEY=sk-...
 ### Tests BDD
 
 ```bash
-poetry run pytest tests/features/schema_embeddings.feature -v
+poetry run pytest tests/features/chat_endpoint.feature -v
 ```
 
 ## Model Context Protocol (MCP) - Cursor Integration
@@ -172,8 +172,8 @@ backend/
 │   └── ...
 ├── tests/               # Tests BDD
 │   ├── features/
-│   │   ├── schema_embeddings.feature
 │   │   ├── chat_endpoint.feature
+│   │   ├── etl_pipeline.feature
 │   │   └── ...
 │   ├── step_defs/
 │   │   └── test_schema_embeddings_steps.py
