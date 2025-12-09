@@ -97,7 +97,7 @@ jobs:
         if: success()
         uses: slackapi/slack-github-action@v1.24.0
         with:
-          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhookUrl: ${{ secrets.SLACK_WEBHOOK_URL }}
           payload: |
             {
               "text": "✓ Euroleague ETL Pipeline completed successfully",
@@ -116,7 +116,7 @@ jobs:
         if: failure()
         uses: slackapi/slack-github-action@v1.24.0
         with:
-          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhookUrl: ${{ secrets.SLACK_WEBHOOK_URL }}
           payload: |
             {
               "text": "✗ Euroleague ETL Pipeline failed",
@@ -130,4 +130,5 @@ jobs:
                 }
               ]
             }
+
 

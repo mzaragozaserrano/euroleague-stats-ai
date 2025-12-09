@@ -23,7 +23,7 @@ python-multipart = ">=0.0.20,<0.0.21"
 mcp = ">=0.1.0,<1.0.0"
 xmltodict = "^1.0.2"
 redis = {extras = ["hiredis"], version = ">=5.0.0,<6.0.0"}
-euroleague-api = ">=0.1.0,<1.0.0"
+euroleague-api = ">=0.0.21,<1.0.0"
 pandas = ">=2.0.0,<3.0.0"
 
 
