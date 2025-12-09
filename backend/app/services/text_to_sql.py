@@ -99,8 +99,6 @@ INSTRUCCIONES:
    - "Real Madrid" (no "real madrid", "RealMadrid", etc.)
    - "Barcelona" (no "Barsa", "Barça", etc.)
    - "Micic" (no "Micic", "Micić", etc.)
-   - "Tavares" (no "Tavares", "Tavares", etc.)
-   - "Vesely" (no "Vesely", "Vesely", etc.)
 3. Mantén la intención original de la consulta
 4. NO cambies el significado de la consulta
 5. Si la consulta ya está correcta, devuélvela tal cual
