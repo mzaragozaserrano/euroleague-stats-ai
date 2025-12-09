@@ -1,12 +1,12 @@
 # Euroleague Stats AI
 
-![License](https://img.shields.io/badge/license-MIT-green) ![Status](https://img.shields.io/badge/status-IN_PROGRESS-yellow)
+![License](https://img.shields.io/badge/license-MIT-green) ![Status](https://img.shields.io/badge/status-MVP_COMPLETE-green)
 
 Motor de consulta de estadísticas de la Euroliga mediante lenguaje natural con inteligencia artificial.
 
 ## Descripción
 
-Esta aplicación permite a los aficionados, analistas y jugadores de fantasy hacer consultas complejas sobre estadísticas de la Euroliga usando lenguaje natural. En lugar de navegar por filtros y menús, simplemente haz una pregunta y obtén la respuesta visualizada instantáneamente.
+Una interfaz de inteligencia de datos para la Euroliga basada en lenguaje natural. Invertimos el flujo de trabajo tradicional: en lugar de que el usuario busque y filtre datos manualmente, el usuario hace una pregunta ("¿Quién tiene mejor % de triples, Micic o Larkin?") y la IA recupera la respuesta visualizada instantáneamente.
 
 **Visión:** Crear el "Statmuse de la Euroliga" - una herramienta donde la barrera entre la curiosidad del aficionado y la respuesta estadística sea cero.
 
@@ -17,16 +17,25 @@ Esta aplicación permite a los aficionados, analistas y jugadores de fantasy hac
 * ✅ **Fase 0:** Scaffolding & Setup (Completado)
 * ✅ **Fase 1:** Data Pipeline MVP (Completado - Enero 2025)
 * ✅ **Fase 2:** Backend & AI Engine (Completado - Issue #40)
-* 🚧 **Fase 3:** Frontend MVP (En Progreso)
+* ✅ **Fase 3:** Frontend MVP (Completado - UI completa con visualizaciones)
+* 🚧 **Fase 4:** Post-MVP / Pro Features (Futuro)
 
 ---
 
-## Características Principales
+## Características Principales (MVP Implementado ✅)
 
-- 🔍 **Consulta en Lenguaje Natural**: Haz preguntas como "Comparativa de puntos por partido entre Micic y Larkin".
-- 📊 **Visualización Automática**: El sistema decide la mejor forma de mostrar los datos (tablas, gráficos, shot charts).
-- 🎯 **Motor Text-to-SQL**: Utiliza IA para convertir preguntas en consultas SQL precisas.
-- 🆓 **Modelo Freemium**: Acceso gratuito a estadísticas básicas (MVP), arquitectura lista para plan Pro.
+- 🔍 **Consulta en Lenguaje Natural**: Haz preguntas como "Top 10 anotadores" o "Mejores reboteadores del Real Madrid". El sistema corrige automáticamente erratas tipográficas (ej: "Campazo" → "Campazzo").
+- 📊 **Visualización Automática**: El sistema decide automáticamente la mejor forma de mostrar los datos (Tabla, Bar Chart o Line Chart) usando Recharts.
+- 🎯 **Motor Text-to-SQL con RAG**: Utiliza Retrieval Augmented Generation sobre el esquema de base de datos para mejorar precisión en la generación de SQL. Fallback seguro si RAG no está disponible.
+- 💾 **Persistencia Inteligente**: Historial de chat almacenado en localStorage con sistema automático de backup y recuperación de datos legacy.
+- 🔄 **ETL Automático**: Pipeline diario (8 AM UTC) que ingiere datos desde la API de Euroleague. Actualmente solo temporada 2025.
+- 🆓 **Modelo Freemium**: MVP gratuito con estadísticas básicas de temporada 2025. Arquitectura lista para Tier Pro (stats espaciales/shot-charts).
+
+### Limitaciones Actuales
+
+- ⚠️ **Solo temporada 2025**: La base de datos contiene únicamente datos de la temporada E2025 (jugadores, equipos, estadísticas agregadas).
+- ⚠️ **No hay datos de partidos**: Las consultas que requieren estadísticas por partido individual no están disponibles (tabla `player_game_stats` no poblada).
+- ✅ **Sí disponible**: Estadísticas agregadas por temporada, metadatos de equipos y jugadores, comparativas y rankings.
 
 ---
 
@@ -45,11 +54,15 @@ Este proyecto sigue una arquitectura dirigida por documentación. Para detalles 
 
 ## Stack Tecnológico
 
-- **Frontend**: Next.js 14 (App Router), TypeScript, Tailwind CSS, Shadcn/ui, Recharts.
-- **Backend**: Python 3.11+, FastAPI, Poetry.
-- **Base de Datos**: Neon (Serverless PostgreSQL) con `pgvector`.
-- **IA/LLM**: OpenRouter (Claude 3.5), RAG con OpenAI Embeddings.
-- **Infraestructura**: Render (Web Services), GitHub Actions (CI/CD + Cron).
+- **Frontend**: Next.js 14 (App Router), TypeScript, Tailwind CSS, Shadcn/ui, Recharts, Zustand.
+- **Backend**: Python 3.11+, FastAPI, Poetry, SQLAlchemy (Async) + asyncpg.
+- **Base de Datos**: Neon (Serverless PostgreSQL 16) con extensión `pgvector` para embeddings.
+- **IA/LLM**: 
+  - **OpenAI API**: Embeddings (`text-embedding-3-small`) y corrección de consultas
+  - **OpenRouter**: Generación de SQL con modelo `openai/gpt-3.5-turbo`
+  - **RAG**: Sistema de Retrieval Augmented Generation sobre esquema de BD
+- **Infraestructura**: Render (Web Services), GitHub Actions (CI/CD + ETL Cron diario).
+- **Testing**: pytest-bdd + pytest-asyncio para BDD tests.
 
 ---
 
@@ -117,23 +130,45 @@ El protocolo MCP permite usar el Agent de Cursor para ejecutar consultas en leng
 ```
 Query Natural (español)
      ↓
-Obtener Contexto de Esquema (RAG)
+Corrección de Consulta (OpenAI via OpenRouter)
      ↓
-Generar SQL con LLM (OpenRouter)
+Obtener Contexto de Esquema (RAG con OpenAI embeddings)
      ↓
-Validar SQL (seguridad)
+Generar SQL con LLM (OpenRouter - GPT-3.5-turbo)
+     ↓
+Validar SQL (seguridad - solo SELECT)
      ↓
 Ejecutar contra PostgreSQL (Neon)
      ↓
-Retornar JSON { sql, data, visualization }
+Generar Respuesta en Markdown (OpenRouter - GPT-3.5-turbo)
+     ↓
+Retornar JSON { sql, data, visualization, message }
 ```
+
+**Flujo Completo de una Consulta:**
+1. Usuario escribe query en el chat frontend
+2. Frontend envía `POST /api/chat` con query + historial
+3. Backend procesa:
+   - Corrección de consulta (normaliza nombres y corrige erratas) - GPT-3.5-turbo via OpenRouter
+   - RAG: Genera embedding, busca esquema relevante en `schema_embeddings` - OpenAI embeddings
+   - Generación de SQL usando contexto de esquema - GPT-3.5-turbo via OpenRouter
+   - Ejecución contra BD (Neon)
+   - Generación de respuesta en Markdown basada en los datos obtenidos - GPT-3.5-turbo via OpenRouter
+   - Retorna JSON con SQL, datos, tipo de visualización y mensaje en Markdown
+4. Frontend renderiza:
+   - Mensaje en Markdown (texto formateado con negritas, tablas, etc.)
+   - Visualización de datos (BarChart, LineChart, DataTable) cuando corresponde
+5. localStorage persiste el chat para futuras sesiones (con backup automático)
 
 ### Requisitos Previos
 
 - Cursor Editor (versión 0.40+)
 - Python 3.11+ instalado
 - Poetry instalado
-- `backend/.env` configurado con `DATABASE_URL` y `OPENROUTER_API_KEY`
+- `backend/.env` configurado con:
+  - `DATABASE_URL` (connection string de Neon)
+  - `OPENROUTER_API_KEY` (para generación de SQL)
+  - `OPENAI_API_KEY` (para embeddings y corrección de consultas)
 
 ### Configuración Rápida
 
@@ -200,15 +235,22 @@ Una vez configurado, usa el símbolo `@text-to-sql` en el chat de Cursor:
 @text-to-sql query_natural "Dame los puntos de Shane Larkin"
 ```
 
-**Ejemplo 3: Estadísticas agregadas**
+**Ejemplo 3: Top rankings**
 ```
-@text-to-sql query_natural "Puntos por equipo ordenados descendente"
+@text-to-sql query_natural "Top 10 anotadores de esta temporada"
 ```
 
-**Ejemplo 4: Comparativas**
+**Ejemplo 4: Estadísticas por equipo**
+```
+@text-to-sql query_natural "Mejores reboteadores del Real Madrid"
+```
+
+**Ejemplo 5: Comparativas**
 ```
 @text-to-sql query_natural "Compara asistencias entre Micic y Larkin"
 ```
+
+**Nota:** Las consultas sobre partidos individuales no están disponibles actualmente (solo temporada 2025 agregada).
 
 Cursor automáticamente:
 1. Detecta la herramienta MCP invocada
@@ -250,6 +292,39 @@ El servidor se iniciará y esperará conexiones vía stdio. Los logs se guardan 
 - [Neon Documentation](https://neon.tech/docs)
 - [Cursor Documentation](https://docs.cursor.sh/)
 - [OpenRouter API](https://openrouter.ai/)
+
+---
+
+## Datos y ETL
+
+### Fuente de Datos
+
+- **API Euroleague**: Datos oficiales de la Euroliga obtenidos vía GitHub Actions
+- **ETL Diario**: Ejecuta automáticamente a las 8 AM UTC todos los días
+- **Temporada Actual**: Solo temporada 2025 (E2025) está disponible
+- **Datos Ingeridos**: Equipos, jugadores, estadísticas agregadas por temporada (`player_season_stats`)
+
+### Estructura de Datos
+
+- **`teams`**: Información de equipos (código, nombre, logo)
+- **`players`**: Información de jugadores (código, nombre, posición, equipo, temporada)
+- **`player_season_stats`**: Estadísticas agregadas por temporada (puntos, rebotes, asistencias, triples, PIR)
+- **`schema_embeddings`**: Metadatos vectorizados para RAG (tablas, columnas, ejemplos SQL)
+- **`games`**: Metadatos de partidos (NO poblada actualmente)
+- **`player_game_stats`**: Estadísticas por partido (NO poblada actualmente)
+
+Para más detalles sobre el esquema, consulta [`docs/architecture.md`](./docs/architecture.md).
+
+---
+
+## Próximos Pasos (Fase 4)
+
+- **4.1 Datos de Partidos**: Extender ETL para ingerir estadísticas detalladas por partido
+- **4.2 Visualizaciones Espaciales**: Shot charts, heatmaps con PostGIS
+- **4.3 Análisis de Partidos**: Resúmenes automáticos de partidos concretos
+- **4.4 Monetización**: Sistema para costear infraestructura y APIs
+
+Ver [`docs/roadmap.md`](./docs/roadmap.md) para más detalles.
 
 ---
 

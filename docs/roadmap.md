@@ -23,14 +23,15 @@
 - [x] **2.5 Testing (#34):** BDD scenarios for SQL generation accuracy (15 scenarios + 53 unit tests).
 - [x] **2.6 Verification - MCP (#40):** Configure Neon MCP in Cursor for query sanity-checking.
 
-## Phase 3: Frontend MVP (NEXT UP 🚧)
+## Phase 3: Frontend MVP (COMPLETED ✅)
 - [x] **3.1 Zustand Store (#42):** Chat state management with localStorage persistence.
 - [x] **3.2 Chat UI Components (#43):** ChatContainer, ChatInput, MessageList, MessageBubble.
 - [x] **3.3 Data Visualizer (#44):** Recharts implementation for Bar/Line/Table charts.
 - [x] **3.4 API Integration (#47):** Frontend-to-Backend communication with error handling.
-- [ ] **3.5 Local Storage & UX (#45):** Enhanced persistence and UI improvements.
-- [ ] **3.6 Deployment (#46):** Deploy to Render with CI/CD pipeline.
+- [x] **3.5 Local Storage & UX (#45):** Enhanced persistence and UI improvements (Backup system implemented).
 
-## Phase 4: Post-MVP / Pro Features
-- [ ] Spatial SQL (PostGIS) for Shot Charts.
-- [ ] Authentication / Monetization.
+## Phase 4: Post-MVP / Pro Features (FUTURE)
+- [ ] **4.1 Game-Level Data Pipeline:** Extender ETL para ingerir estadísticas detalladas por partido (box scores, shooting data, play-by-play). Implementar modelos de datos para `player_game_stats` y `games` con soporte multi-temporada.
+- [ ] **4.2 Spatial Analytics & Visualizations:** Implementar visualizaciones espaciales avanzadas mediante PostGIS (shot charts, heatmaps, court positioning). Integrar análisis de zonas de tiro y eficiencia espacial.
+- [ ] **4.3 Automated Game Analysis:** Sistema de generación automática de resúmenes y análisis de partidos concretos usando LLM, extrayendo insights clave de estadísticas y eventos del juego.
+- [ ] **4.4 Monetization & Infrastructure:** Implementar sistema de monetización (freemium/pro tiers) para costear infraestructura, APIs externas y escalabilidad. Incluir rate limiting, autenticación y gestión de suscripciones.

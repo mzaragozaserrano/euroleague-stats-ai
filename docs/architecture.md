@@ -88,6 +88,20 @@ Usuario Chat History
 
 ### Flujo de una Consulta:
 
+```
+API Euroleague (GitHub) --[ETL 8 AM UTC - Solo 2025]--> Backend BD (Neon)
+                                                                    ↑
+Frontend (User Chat) --[POST /api/chat]--> Backend API
+    ↓                                              ↓
+localStorage (con backup)             1. Corrección (OpenAI via OpenRouter)
+                                      2. RAG (OpenAI embeddings)
+                                      3. SQL Gen (OpenRouter)
+                                      4. Ejecución SQL
+                                      5. Retorno JSON
+```
+
+**Pasos detallados:**
+
 1. **Usuario escribe query** en el chat frontend
 2. **Frontend envía** `POST /api/chat` con query + historial
 3. **Backend procesa:**
@@ -98,9 +112,69 @@ Usuario Chat History
      - Si RAG falla o no está disponible, usa esquema hardcodeado como fallback
    - **Generación de SQL (OpenRouter)**: LLM genera SQL usando contexto de esquema
    - **Ejecución**: Ejecuta SQL contra BD (Neon)
-   - **Retorna**: Resultados en JSON con tipo de visualización
-4. **Frontend recibe** respuesta y renderiza visualización (BarChart, LineChart, DataTable)
+   - **Generación de Respuesta (OpenRouter)**: GPT-3.5-turbo genera respuesta en lenguaje natural (Markdown) basada en los datos obtenidos
+   - **Retorna**: JSON con SQL, datos, tipo de visualización y mensaje en Markdown
+4. **Frontend recibe** respuesta y renderiza:
+   - Mensaje en Markdown (texto formateado con negritas, tablas, etc.)
+   - Visualización de datos (BarChart, LineChart, DataTable) cuando corresponde
 5. **localStorage persiste** el chat para futuras sesiones (con backup automático)
+
+### Tipos de Consultas Soportadas
+
+#### ✅ Soportadas: Estadísticas Agregadas por Temporada
+
+**Ejemplos:**
+- "Top 10 anotadores de esta temporada"
+- "Mejores reboteadores del Real Madrid"
+- "Máximo asistente"
+
+**Flujo:**
+1. Frontend envía query al backend: `POST /api/chat`
+2. **Corrección de consulta (OpenAI)**: Corrige erratas tipográficas (ej: "Campazo" → "Campazzo")
+3. **RAG (Retrieval)**: Genera embedding de query, busca esquema relevante en `schema_embeddings`
+4. Backend detecta que es consulta de stats
+5. Backend extrae parámetros (temporada, estadística, top N, equipo)
+6. Backend ejecuta: `SELECT ... FROM player_season_stats WHERE season = 'E2025' ORDER BY points DESC LIMIT 10`
+7. Retorna datos + visualización (bar/line/table)
+
+#### ❌ NO Soportadas: Datos a Nivel de Partido
+
+**Ejemplos (retornan error):**
+- "Partidos de Larkin con más de 10 puntos"
+- "Box score del partido Real Madrid vs Barcelona"
+- "Estadísticas de Larkin en cada partido"
+- "¿Cuántos puntos anotó Larkin contra el Milan?"
+
+**Razón:** La tabla `player_game_stats` aún no está poblada en la BD. Solo tenemos datos de temporada 2025 agregados por temporada.
+
+**Comportamiento:**
+1. Backend detecta keyword: "partidos de", "en el partido", "por cada partido"
+2. Backend retorna error informativo:
+   ```json
+   {
+     "error": "⚠️ Esta consulta requiere datos detallados por partido que aún no están disponibles...",
+     "data": null,
+     "sql": null
+   }
+   ```
+3. Frontend muestra el error al usuario
+
+#### ✅ Soportadas: Consultas Generales de Metadatos
+
+**Ejemplos:**
+- "¿Cuántos equipos hay?"
+- "Jugadores del Real Madrid"
+- "¿Qué posición juega Larkin?"
+- "Lista de todos los equipos"
+
+**Flujo:**
+1. Frontend envía query
+2. **Corrección de consulta (OpenAI)**: Normaliza nombres y corrige erratas
+3. **RAG (Retrieval)**: Recupera esquema relevante usando embeddings
+4. Backend detecta que NO es de stats
+5. Backend usa LLM (OpenRouter) para generar SQL con contexto de esquema
+6. Backend ejecuta SQL contra BD
+7. Retorna resultados
 
 ### Uso de OpenAI:
 
@@ -119,14 +193,50 @@ Usuario Chat History
   - Propósito: Convertir consultas naturales a SQL válido
   - Contexto: Esquema relevante recuperado por RAG
 
+### Ejemplos de Flujo Real
+
+**Ejemplo 1: Top 10 Anotadores (FUNCIONA)**
+```
+Usuario: "Top 10 anotadores"
+  ↓
+Backend: Detecta consulta de stats
+Backend: Extrae params: {seasoncode: "E2025", stat: "points", top_n: 10}
+Backend: SELECT * FROM player_season_stats WHERE season='E2025' ORDER BY points DESC LIMIT 10
+Backend: Retorna 10 jugadores con stats
+Frontend: Renderiza BarChart
+```
+
+**Ejemplo 2: Partidos de Larkin (NO FUNCIONA)**
+```
+Usuario: "Partidos de Larkin con más de 10 puntos"
+  ↓
+Backend: Detecta keyword "partidos de"
+Backend: Retorna error: "Esta consulta requiere datos detallados por partido..."
+Frontend: Muestra mensaje de error
+```
+
+**Ejemplo 3: Equipos (FUNCIONA)**
+```
+Usuario: "¿Cuántos equipos hay?"
+  ↓
+Backend: Detecta consulta de metadatos
+Backend: LLM genera: "SELECT COUNT(*) FROM teams"
+Backend: Ejecuta SQL
+Backend: Retorna: {count: 18}
+Frontend: Muestra resultado en tabla
+```
+
 ### Limitaciones Actuales:
 
 - ❌ **Base de datos solo contiene datos de temporada 2025** (jugadores, equipos, estadísticas)
 - ❌ No se pueden consultar datos a nivel de partido individual (`player_game_stats` no está poblada)
 - ❌ Las queries que requieren "partidos específicos" retornan error explicativo
+- ❌ No se pueden hacer box scores
+- ❌ No se pueden filtrar stats por rango de fechas (solo por temporada E2025)
 - ✅ Sí se pueden consultar estadísticas agregadas por temporada (`player_season_stats` para E2025)
 - ✅ Sí se pueden consultar metadatos (equipos, jugadores, posiciones de temporada 2025)
 - ✅ RAG funciona con fallback seguro si OpenAI API key no está configurada
+- ✅ Sistema de corrección de consultas mejora precisión de nombres
 
 ## 5. Critical Constraints
 - **Neon Serverless:** MUST use `poolclass=NullPool` in SQLAlchemy engine.
@@ -189,3 +299,60 @@ Usuario Chat History
 - Si la tabla `schema_embeddings` está vacía → usa esquema hardcodeado
 - Si hay error en la búsqueda → usa esquema hardcodeado
 - El sistema siempre funciona, incluso sin RAG configurado
+
+## 9. Persistencia Frontend
+
+### Chat History (localStorage)
+
+**Clave:** `chat-storage`
+
+**Estructura:**
+```typescript
+{
+  state: {
+    sessions: Session[],              // Múltiples sesiones de chat
+    currentSessionId: string | null   // ID de sesión activa
+  },
+  version: 5                          // Versión actual del schema
+}
+```
+
+**Ciclo de vida:**
+1. Usuario escribe mensaje
+2. Frontend agrega a sesión actual
+3. localStorage se actualiza automáticamente (Zustand persist)
+4. Backup automático antes de migraciones
+5. Usuario cierra tab/navegador
+6. Usuario vuelve → localStorage restaura chat automáticamente
+7. Sistema detecta y recupera datos legacy si existen
+
+**NO hay caché de stats** en el frontend. Todos los datos vienen del backend.
+
+## 10. Testing
+
+Para probar que el backend detecta correctamente los tipos de queries:
+
+```bash
+cd backend
+python -m pytest tests/features/chat_endpoint.feature -v
+```
+
+Para probar la detección de queries de partidos:
+
+```bash
+python -c "
+from app.services.text_to_sql import TextToSQLService
+service = TextToSQLService(api_key='test')
+
+queries = [
+    'Top 10 anotadores',
+    'Partidos de Larkin con más de 10 puntos',
+    'Mejores reboteadores del Real Madrid'
+]
+
+for q in queries:
+    requires_stats = service._requires_player_stats(q)
+    is_games = service._is_games_query_unavailable(q)
+    print(f'{q}: stats={requires_stats}, games={is_games}')
+"
+```

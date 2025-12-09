@@ -33,6 +33,7 @@ Todas las tareas de frontend completadas. Sistema RAG implementado con fallback 
 - **RAG:** Funcional con fallback seguro
 - **OpenAI:** Usado para embeddings, corrección de consultas y generación de SQL
 - **Backup System:** Funcional con recuperación automática de datos legacy
+- **Documentación:** Consolidada en 4 archivos principales: `active-context.md`, `architecture.md`, `project-brief.md`, `roadmap.md`
 
 ## Completed in Issue #33
 1. **BDD Tests:** 12 scenarios en `chat_endpoint.feature` con step definitions.
