@@ -54,6 +54,25 @@ jobs:
         working-directory: backend
         run: poetry install --no-interaction --no-ansi
       
+      - name: Verify DATABASE_URL is configured
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "❌ ERROR: DATABASE_URL secret no está configurado en GitHub Secrets"
+            echo "Por favor, configura el secret DATABASE_URL en: Settings > Secrets and variables > Actions"
+            exit 1
+          fi
+          
+          # Verificar formato básico de la URL
+          if [[ ! "$DATABASE_URL" =~ ^postgresql\+asyncpg:// ]]; then
+            echo "⚠️  WARNING: DATABASE_URL no usa el formato correcto para asyncpg"
+            echo "Formato esperado: postgresql+asyncpg://user:pass@host/db?ssl=require"
+            echo "URL actual (oculta por seguridad): ${DATABASE_URL:0:30}..."
+          fi
+          
+          echo "✓ DATABASE_URL configurado correctamente"
+      
       - name: Initialize database
         working-directory: backend
         env:

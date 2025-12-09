@@ -139,7 +139,6 @@ async def run_migrations():
 async def verify_schema():
     """
     Verifica que las tablas existan en la BD.
-    Si hay problemas de conexión temporal, solo muestra un warning.
     """
     try:
         logger.info("Verificando esquema de BD...")
@@ -163,17 +162,12 @@ async def verify_schema():
         logger.info("✓ Verificación completada")
         
     except Exception as e:
-        # Si hay problemas de conexión temporal (DNS, red, etc.), 
-        # solo mostramos un warning pero no fallamos el script
-        # Las migraciones ya se ejecutaron, así que la BD debería estar lista
-        error_msg = str(e).lower()
-        if any(keyword in error_msg for keyword in ['temporary failure', 'name resolution', 'connection', 'network', 'timeout']):
-            logger.warning(f"⚠ No se pudo verificar el esquema debido a un problema de conexión temporal: {e}")
-            logger.warning("⚠ Las migraciones se ejecutaron correctamente. La verificación se puede hacer más tarde.")
-        else:
-            # Para otros errores, sí mostramos error pero no bloqueamos
-            logger.warning(f"⚠ Error verificando esquema: {e}")
-            logger.warning("⚠ Las migraciones se ejecutaron. Revisa la conexión a la BD si el problema persiste.")
+        logger.error(f"Error verificando esquema: {e}")
+        logger.error("❌ No se pudo conectar a la base de datos. Verifica:")
+        logger.error("   1. Que DATABASE_URL esté configurado correctamente")
+        logger.error("   2. Que la URL use el formato: postgresql+asyncpg://user:pass@host/db?ssl=require")
+        logger.error("   3. Que el hostname de la BD sea accesible desde GitHub Actions")
+        sys.exit(1)
 
 
 async def main():
