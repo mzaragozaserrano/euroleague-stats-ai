@@ -58,18 +58,21 @@ jobs:
         working-directory: backend
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONPATH: ${{ github.workspace }}/backend
         run: poetry run python scripts/init_db.py
       
       - name: Run ETL Pipeline
         working-directory: backend
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONPATH: ${{ github.workspace }}/backend
         run: poetry run python scripts/run_etl.py ${{ github.event.inputs.season || '2025' }}
       
       - name: Verify data integrity
         working-directory: backend
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONPATH: ${{ github.workspace }}/backend
         run: |
           poetry run python -c "
           import asyncio
@@ -102,6 +105,7 @@ jobs:
       
       - name: Notify Slack on success
         if: success()
+        continue-on-error: true
         uses: slackapi/slack-github-action@v2.1.1
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -122,6 +126,7 @@ jobs:
       
       - name: Notify Slack on failure
         if: failure()
+        continue-on-error: true
         uses: slackapi/slack-github-action@v2.1.1
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
