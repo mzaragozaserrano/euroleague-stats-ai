@@ -207,7 +207,8 @@ async def _get_schema_context(session: AsyncSession, query: str) -> str:
                 return _get_default_schema_context()
                 
         except Exception as e:
-            logger.warning(f"Error usando RAG, fallback a esquema por defecto: {e}")
+            # Capturar cualquier error (tabla no existe, error de conexión, etc.)
+            logger.warning(f"Error usando RAG (tabla puede no existir o no tener embeddings), fallback a esquema por defecto: {type(e).__name__}: {str(e)[:100]}")
             # Fallback seguro: usar esquema hardcodeado
             return _get_default_schema_context()
     else:
