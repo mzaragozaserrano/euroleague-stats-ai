@@ -2,16 +2,16 @@
 
 ## Sub-modules
 
-* [euroleague_api.EuroLeagueData](euro-league-data/)
-* [euroleague_api.boxscore_data](boxscore_data/)
-* [euroleague_api.game_metadata](game_metadata/)
-* [euroleague_api.game_stats](game_stats/)
-* [euroleague_api.play_by_play_data](play_by_play_data/)
-* [euroleague_api.player_stats](player_stats/)
-* [euroleague_api.shot_data](shot_data/)
-* [euroleague_api.standings](standings/)
-* [euroleague_api.team_stats](team_stats/)
-* [euroleague_api.utils](utils/)
+* [euroleague_api.EuroLeagueData](euro-league-data.md)
+* [euroleague_api.boxscore_data](boxscore_data.md)
+* [euroleague_api.game_metadata](game_metadata.md)
+* [euroleague_api.game_stats](game_stats.md)
+* [euroleague_api.play_by_play_data](play_by_play_data.md)
+* [euroleague_api.player_stats](player_stats.md)
+* [euroleague_api.shot_data](shot_data.md)
+* [euroleague_api.standings](standings.md)
+* [euroleague_api.team_stats](team_stats.md)
+* [euroleague_api.utils](utils.md)
 
 ## Variables
 
