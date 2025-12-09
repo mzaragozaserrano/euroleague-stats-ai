@@ -43,9 +43,13 @@ jobs:
           curl -sSL https://install.python-poetry.org | python3 -
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       
+      - name: Update poetry lock file
+        working-directory: backend
+        run: poetry lock --no-interaction || true
+      
       - name: Install dependencies
         working-directory: backend
-        run: poetry install
+        run: poetry install --no-interaction --no-ansi
       
       - name: Initialize database
         working-directory: backend
@@ -95,9 +99,10 @@ jobs:
       
       - name: Notify Slack on success
         if: success()
-        uses: slackapi/slack-github-action@v1.24.0
+        uses: slackapi/slack-github-action@v2.1.1
         with:
-          webhookUrl: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
           payload: |
             {
               "text": "✓ Euroleague ETL Pipeline completed successfully",
@@ -114,9 +119,10 @@ jobs:
       
       - name: Notify Slack on failure
         if: failure()
-        uses: slackapi/slack-github-action@v1.24.0
+        uses: slackapi/slack-github-action@v2.1.1
         with:
-          webhookUrl: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
           payload: |
             {
               "text": "✗ Euroleague ETL Pipeline failed",
