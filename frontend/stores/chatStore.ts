@@ -5,6 +5,7 @@ import {
   ChatResponse,
   getRateLimitInfo,
 } from '@/lib/api';
+import { createBackup, findLegacyData, recoverLegacyData } from '@/lib/localStorageBackup';
 
 export interface ChatMessage {
   id: string;
@@ -585,6 +586,13 @@ export const useChatStore = create<ChatStore>()(
       }),
       // Migración de versiones antiguas
       migrate: (persistedState: any, version: number) => {
+        // Crear backup automático antes de migrar
+        try {
+          createBackup(persistedState, version);
+        } catch (error) {
+          console.error('[ChatStore] Error creando backup antes de migración:', error);
+        }
+
         if (version === 0 || version === 1) {
           // v1 → v4: Convertir history/messages en primera sesión
           const oldMessages = persistedState.history || persistedState.messages || [];
@@ -667,19 +675,35 @@ export const useChatStore = create<ChatStore>()(
         if (state) {
           const { currentSessionId, sessions } = state;
           
+          // Verificar si hay datos legacy y recuperarlos si no hay sesiones
+          if (sessions.length === 0) {
+            const legacy = findLegacyData();
+            if (legacy.found && legacy.data) {
+              const recovery = recoverLegacyData();
+              if (recovery.success) {
+                // Recargar estado después de recuperación
+                const recoveredData = JSON.parse(localStorage.getItem('chat-storage') || '{}');
+                if (recoveredData.state) {
+                  state.sessions = recoveredData.state.sessions || [];
+                  state.currentSessionId = recoveredData.state.currentSessionId || null;
+                }
+              }
+            }
+          }
+          
           // Ordenar mensajes de todas las sesiones por timestamp
-          const sortedSessions = sessions.map((session) => ({
+          const sortedSessions = (state.sessions || []).map((session: ChatSession) => ({
             ...session,
             messages: [...session.messages].sort((a, b) => a.timestamp - b.timestamp),
           }));
           
-          if (currentSessionId) {
-            const currentSession = sortedSessions.find((s) => s.id === currentSessionId);
+          if (state.currentSessionId) {
+            const currentSession = sortedSessions.find((s) => s.id === state.currentSessionId);
             if (currentSession) {
               state.sessions = sortedSessions;
               state.messages = currentSession.messages;
               state.history = currentSession.messages;
-              state.isLoading = calculateIsLoading(sortedSessions, currentSessionId);
+              state.isLoading = calculateIsLoading(sortedSessions, state.currentSessionId);
             }
           } else {
             state.sessions = sortedSessions;
