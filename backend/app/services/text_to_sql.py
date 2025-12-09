@@ -139,8 +139,27 @@ Responde SOLO con la consulta corregida, sin explicaciones adicionales."""
             corrected_query = response.choices[0].message.content.strip()
             
             # Limpiar la respuesta (puede incluir prefijos como "Consulta corregida:")
-            corrected_query = corrected_query.replace("Consulta corregida:", "").strip()
-            corrected_query = corrected_query.replace("Consulta original:", "").strip()
+            # Eliminar prefijos comunes que OpenAI puede agregar
+            prefixes_to_remove = [
+                "Consulta corregida:",
+                "Consulta original:",
+                "Consulta:",
+                "Corrección:",
+                "Corregida:",
+                "Respuesta:",
+            ]
+            for prefix in prefixes_to_remove:
+                if corrected_query.lower().startswith(prefix.lower()):
+                    corrected_query = corrected_query[len(prefix):].strip()
+            
+            # También limpiar si aparece en cualquier parte del texto
+            for prefix in prefixes_to_remove:
+                corrected_query = corrected_query.replace(prefix, "").strip()
+            
+            # Si la respuesta está vacía o es muy corta, usar la original
+            if not corrected_query or len(corrected_query.strip()) < 3:
+                logger.warning(f"Corrección retornó respuesta vacía o muy corta ('{corrected_query}'), usando consulta original")
+                return query
             
             # Si la corrección es muy diferente (más del 50% de cambio), usar la original
             # para evitar cambios no deseados
