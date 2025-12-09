@@ -53,5 +53,7 @@ if (typeof window !== 'undefined') {
   (window as any).checkLegacyData = checkAndRecoverData;
   (window as any).recoverLegacyData = recoverLegacyData;
   (window as any).getBackups = getAvailableBackups;
+  (window as any).findLegacyData = findLegacyData;
+  (window as any).restoreLatestBackup = restoreLatestBackup;
 }
 
