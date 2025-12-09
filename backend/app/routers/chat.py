@@ -157,7 +157,7 @@ IMPORTANT:
 """
 
 
-async def _get_schema_context(session: AsyncSession, query: str) -> str:
+async def _get_schema_context(session: AsyncSession, query: str) -> tuple[str, bool]:
     """
     Construye el contexto de esquema para el LLM usando RAG (Retrieval Augmented Generation).
     
@@ -169,7 +169,7 @@ async def _get_schema_context(session: AsyncSession, query: str) -> str:
         query: Consulta natural del usuario (para búsqueda semántica).
     
     Returns:
-        Contexto de esquema relevante para el LLM.
+        Tupla (contexto, usado_rag): Contexto de esquema y booleano indicando si se usó RAG.
     """
     # Intentar usar RAG si OpenAI API key está configurada
     if settings.openai_api_key:
@@ -197,24 +197,24 @@ async def _get_schema_context(session: AsyncSession, query: str) -> str:
                         content = item.get("content", "")
                         context += f"- {content}\n"
                     
-                    logger.info(f"Schema context construido con RAG: {len(filtered_items)} embeddings relevantes (de {len(relevant_schema)} encontrados)")
-                    return context
+                    logger.info(f"✓ RAG ACTIVO: Schema context construido con {len(filtered_items)} embeddings relevantes (de {len(relevant_schema)} encontrados) para query: '{query[:50]}...'")
+                    return context, True
                 else:
-                    logger.warning(f"RAG encontró {len(relevant_schema)} resultados pero ninguno con similitud >= 0.3, usando esquema por defecto")
-                    return _get_default_schema_context()
+                    logger.warning(f"⚠ RAG encontró {len(relevant_schema)} resultados pero ninguno con similitud >= 0.3, usando esquema por defecto")
+                    return _get_default_schema_context(), False
             else:
-                logger.warning("RAG no retornó resultados (tabla vacía o no existe), usando esquema por defecto")
-                return _get_default_schema_context()
+                logger.warning("⚠ RAG no retornó resultados (tabla vacía o no existe), usando esquema por defecto")
+                return _get_default_schema_context(), False
                 
         except Exception as e:
             # Capturar cualquier error (tabla no existe, error de conexión, etc.)
-            logger.warning(f"Error usando RAG (tabla puede no existir o no tener embeddings), fallback a esquema por defecto: {type(e).__name__}: {str(e)[:100]}")
+            logger.warning(f"⚠ Error usando RAG (tabla puede no existir o no tener embeddings), fallback a esquema por defecto: {type(e).__name__}: {str(e)[:100]}")
             # Fallback seguro: usar esquema hardcodeado
-            return _get_default_schema_context()
+            return _get_default_schema_context(), False
     else:
         # Si no hay OpenAI API key, usar esquema hardcodeado
-        logger.info("OPENAI_API_KEY no configurada, usando esquema por defecto")
-        return _get_default_schema_context()
+        logger.info("ℹ OPENAI_API_KEY no configurada, usando esquema por defecto (RAG desactivado)")
+        return _get_default_schema_context(), False
 
 
 async def _execute_sql(session: AsyncSession, sql: str) -> List[Dict[str, Any]]:
@@ -300,8 +300,11 @@ async def chat_endpoint(
         # PASO 1: Obtener contexto de esquema (RAG)
         # ====================================================================
         logger.info("Paso 1: Recuperando contexto de esquema con RAG...")
-        schema_context = await _get_schema_context(session, request.query)
-        logger.info(f"Contexto de esquema obtenido ({len(schema_context)} chars)")
+        schema_context, rag_used = await _get_schema_context(session, request.query)
+        if rag_used:
+            logger.info(f"✓ RAG ACTIVO: Contexto de esquema obtenido con búsqueda semántica ({len(schema_context)} chars)")
+        else:
+            logger.info(f"ℹ RAG NO USADO: Contexto de esquema obtenido desde fallback hardcodeado ({len(schema_context)} chars)")
         
         # ====================================================================
         # PASO 2: Generar SQL o obtener stats directamente
