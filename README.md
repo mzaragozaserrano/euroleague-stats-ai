@@ -34,10 +34,10 @@ Esta aplicación permite a los aficionados, analistas y jugadores de fantasy hac
 
 Este proyecto sigue una arquitectura dirigida por documentación. Para detalles técnicos profundos, consulta la carpeta [`docs/`](./docs/):
 
-* **[Visión del Proyecto](docs/project_brief.md):** Alcance, métricas de éxito y reglas de negocio UI.
+* **[Visión del Proyecto](docs/project-brief.md):** Alcance, métricas de éxito y reglas de negocio UI.
 * **[Arquitectura Técnica](docs/architecture.md):** Esquema de base de datos, algoritmos RAG y estrategia Text-to-SQL.
 * **[Roadmap](docs/roadmap.md):** Historial de fases completadas y planes futuros.
-* **[Contexto Activo](docs/active_context.md):** Estado actual del desarrollo y decisiones recientes.
+* **[Contexto Activo](docs/active-context.md):** Estado actual del desarrollo y decisiones recientes.
 
 > *Nota: Documentación histórica y especificaciones originales archivadas en `docs/archive/`.*
 
