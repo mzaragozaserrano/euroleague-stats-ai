@@ -23,32 +23,73 @@ root/
 ```
 
 ## 3. Data Model (Schema)
-*Key Tables implemented in Phase 1:*
+
+### Tablas de Producción:
 
 - **`teams`**: `id`, `code`, `name`, `logo_url`.
-- **`players`**: `id`, `team_id`, `name`, `position`.
-- **`games`**: `id`, `season`, `round`, `home_team_id`, `away_team_id`, `scores`.
-- **`player_stats_games`** (Fact Table): Granular box scores per player per game.
-    - Metrics: `points`, `rebounds`, `assists`, `fg3_made`, `pir`, etc.
-    - Constraints: Unique(`game_id`, `player_id`).
-- **`schema_embeddings`**:
-    - `content`: Text description of tables/columns.
-    - `embedding`: Vector representation (1536 dim).
-    - *Purpose:* RAG retrieval to find relevant schema for SQL generation.
+  - Actualización: Diaria (7 AM UTC) vía ETL automático desde API Euroleague.
 
-## 4. AI Pipeline (Text-to-SQL)
-1.  **Input:** User Query ("Puntos de Larkin vs Micic").
-2.  **Schema Retrieval (RAG):**
-    - Vectorize Query -> Search `schema_embeddings` table.
-    - *Constraint:* DO NOT vectorise row data (stats), ONLY schema metadata.
-3.  **Prompt Construction:** Inject retrieved schema + few-shot SQL examples.
-4.  **Generation:** LLM produces JSON `{ sql, visualization_type }`.
-5.  **Execution:** Run SQL on Neon (Read-Only user).
+- **`players`**: `id`, `player_code`, `team_id`, `name`, `position`.
+  - Campo clave: `player_code` (código de Euroleague API).
+  - Actualización: Diaria (7 AM UTC) vía ETL automático.
+
+- **`player_season_stats`**: `id`, `player_id`, `season`, `games_played`, `points`, `rebounds`, `assists`, `pir`.
+  - Estadísticas agregadas por temporada (desde API Euroleague vía ETL).
+  - Actualización: Diaria (7 AM UTC).
+
+- **`schema_embeddings`**: `id`, `content`, `embedding`.
+  - Descripciones de tablas/columnas para RAG retrieval.
+  - Permite que el LLM genere SQL relevante.
+
+### Almacenamiento Frontend (localStorage - SOLO CHATS):
+
+- **`chat-storage`**: Historial de conversaciones del usuario (ÚNICA persistencia del frontend).
+  - Estructura: `{ messages: [], history: [], lastCleared, totalQueriesCount, sessions, currentSessionId }`
+  - Versión: 3 (con migración automática desde v1, v2)
+  - Sobrevive a cierres de tab y recargas de página.
+  - **NO HAY base de datos embebida en el frontend** (sin IndexedDB, SQLite, u otros).
+  - Todos los datos se consultan del backend (Neon PostgreSQL).
+
+## 4. Flujo de Datos
+
+### Arquitectura Actual:
+
+```
+API Euroleague (GitHub)
+        ↓ (ETL diario 7 AM UTC)
+Backend BD (Neon PostgreSQL)
+        ↑ (Text-to-SQL generado por LLM)
+Frontend ChatStore
+        ↓ (localStorage persistence)
+Usuario Chat History
+```
+
+### Flujo de una Consulta:
+
+1. **Usuario escribe query** en el chat frontend
+2. **Frontend envía** `POST /api/chat` con query + historial
+3. **Backend procesa:**
+   - Obtiene esquema relevante (RAG)
+   - LLM genera SQL usando OpenRouter
+   - Ejecuta SQL contra BD (Neon)
+   - Retorna resultados en JSON
+4. **Frontend recibe** respuesta y renderiza visualización
+5. **localStorage persiste** el chat para futuras sesiones
+
+### Limitaciones Actuales:
+
+- ❌ No se pueden consultar datos a nivel de partido individual (`player_stats_games`)
+- ❌ Las queries que requieren "partidos específicos" retornan error explicativo
+- ✅ Sí se pueden consultar estadísticas agregadas por temporada (`player_season_stats`)
+- ✅ Sí se pueden consultar metadatos (equipos, jugadores, posiciones)
 
 ## 5. Critical Constraints
 - **Neon Serverless:** MUST use `poolclass=NullPool` in SQLAlchemy engine.
 - **Embeddings:** Use API-based embeddings to save RAM on Render.
-- **ETL:** Daily Cron via GitHub Actions (Cost: $0).
+- **ETL:** Daily Cron via GitHub Actions at 7 AM UTC (Cost: $0).
+- **Caché Frontend:** Invalidación automática después de las 7 AM.
+- **localStorage Limit:** 5-10 MB (solo cachear temporadas activas: E2024, E2025).
+- **API Euroleague:** Fuente única de verdad para estadísticas de jugadores.
 
 ## 6. Testing Strategy
 - **Framework:** `pytest-bdd` + `pytest-asyncio`.

@@ -1,0 +1,133 @@
+name: ETL Pipeline - Euroleague Data Sync
+
+# Se ejecuta diariamente a las 7 AM UTC (7:00 AM CEST en verano, 8:00 AM CET en invierno)
+on:
+  schedule:
+    - cron: '0 7 * * *'  # 7 AM UTC todos los días
+  
+  # Permitir ejecución manual desde GitHub UI
+  workflow_dispatch:
+    inputs:
+      season:
+        description: 'Season to process (default: 2025)'
+        required: false
+        default: '2025'
+
+jobs:
+  etl-sync:
+    name: Sync Euroleague Data
+    runs-on: ubuntu-latest
+    
+    environment:
+      name: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Cache Poetry dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pypoetry
+          key: ${{ runner.os }}-poetry-${{ hashFiles('backend/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
+      
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      
+      - name: Install dependencies
+        working-directory: backend
+        run: poetry install
+      
+      - name: Initialize database
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: poetry run python scripts/init_db.py
+      
+      - name: Run ETL Pipeline
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: poetry run python scripts/run_etl.py ${{ github.event.inputs.season || '2025' }}
+      
+      - name: Verify data integrity
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          poetry run python -c "
+          import asyncio
+          from app.database import async_session_maker
+          from app.models import Team, Player, PlayerSeasonStats
+          from sqlalchemy import select
+          
+          async def verify():
+              async with async_session_maker() as session:
+                  teams = await session.execute(select(Team))
+                  players = await session.execute(select(Player))
+                  stats = await session.execute(select(PlayerSeasonStats))
+                  
+                  t_count = len(teams.scalars().all())
+                  p_count = len(players.scalars().all())
+                  s_count = len(stats.scalars().all())
+                  
+                  print(f'Teams: {t_count}')
+                  print(f'Players: {p_count}')
+                  print(f'Season Stats: {s_count}')
+                  
+                  assert t_count > 0, 'No teams found'
+                  assert p_count > 0, 'No players found'
+                  assert s_count > 0, 'No stats found'
+                  
+                  print('✓ Data integrity verified')
+          
+          asyncio.run(verify())
+          "
+      
+      - name: Notify Slack on success
+        if: success()
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          payload: |
+            {
+              "text": "✓ Euroleague ETL Pipeline completed successfully",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": ":white_check_mark: *ETL Pipeline - Success*\n*Database:* Updated\n*Teams:* Synced\n*Players:* Synced\n*Season Stats:* Synced"
+                  }
+                }
+              ]
+            }
+      
+      - name: Notify Slack on failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          payload: |
+            {
+              "text": "✗ Euroleague ETL Pipeline failed",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": ":x: *ETL Pipeline - Failed*\n*Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+                  }
+                }
+              ]
+            }
+

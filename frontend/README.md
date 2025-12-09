@@ -58,7 +58,20 @@ frontend/
 - Tailwind CSS
 - shadcn/ui
 - Recharts
-- Zustand
+- Zustand (persistencia de chat history)
+
+## Persistencia & Storage
+
+**IMPORTANTE:** El frontend NO contiene base de datos embebida.
+
+- **localStorage (`chat-storage`)**: Persiste SOLO el historial de conversaciones
+  - Sobrevive a recargas de página y cierre de tabs
+  - Estructura: mensajes, historial, timestamps, contador de queries
+  - Versión 3 con migración automática desde versiones antiguas
+
+- **Todos los datos de negocio** (jugadores, equipos, estadísticas) se consultan del backend
+  - Source of truth = Neon PostgreSQL (backend)
+  - No hay sincronización local ni cache de datos
 
 ## Deployment
 
