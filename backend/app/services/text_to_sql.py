@@ -95,15 +95,19 @@ INSTRUCCIONES:
 2. Normaliza nombres de jugadores y equipos a sus formas más comunes:
    - "Larkin" (no "Larkyn", "Larkin", etc.)
    - "Llull" (no "Llul", "Lull", etc.)
+   - "Campazzo" (no "Campazo", "Campazo", etc.)
    - "Real Madrid" (no "real madrid", "RealMadrid", etc.)
    - "Barcelona" (no "Barsa", "Barça", etc.)
    - "Micic" (no "Micic", "Micić", etc.)
+   - "Tavares" (no "Tavares", "Tavares", etc.)
+   - "Vesely" (no "Vesely", "Vesely", etc.)
 3. Mantén la intención original de la consulta
 4. NO cambies el significado de la consulta
 5. Si la consulta ya está correcta, devuélvela tal cual
 
 EJEMPLOS:
 - "puntos de Larkyn" -> "puntos de Larkin"
+- "estadisticas de Campazo" -> "estadísticas de Campazzo"
 - "maximo anotador del real madrid" -> "máximo anotador del Real Madrid"
 - "estadisticas de Llul" -> "estadísticas de Llull"
 - "top 5 anotadores" -> "top 5 anotadores" (sin cambios)
@@ -155,7 +159,7 @@ Responde SOLO con la consulta corregida, sin explicaciones adicionales."""
             return corrected_query
             
         except Exception as e:
-            logger.warning(f"Error en corrección de consulta: {e}. Usando consulta original.")
+            logger.warning(f"⚠ Error en corrección de consulta: {type(e).__name__}: {str(e)[:100]}. Usando consulta original.")
             return query  # Fallback a la consulta original
     
     @staticmethod
