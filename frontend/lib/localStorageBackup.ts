@@ -196,36 +196,59 @@ export function recoverLegacyData(): {
     const data = legacy.data;
     let recoveredSessions = 0;
 
+    // Zustand guarda datos como { state: {...}, version: X }
+    // Pero también puede estar directamente como objeto plano
+    const stateData = data.state || data;
+    
     // Si tiene sessions, ya está en formato nuevo
-    if (data.state?.sessions && Array.isArray(data.state.sessions)) {
+    if (stateData.sessions && Array.isArray(stateData.sessions) && stateData.sessions.length > 0) {
       return {
         success: true,
-        recoveredSessions: data.state.sessions.length,
-        message: `Datos ya en formato actual: ${data.state.sessions.length} sesiones encontradas`,
+        recoveredSessions: stateData.sessions.length,
+        message: `Datos ya en formato actual: ${stateData.sessions.length} sesiones encontradas`,
       };
     }
 
     // Si tiene messages o history, convertir a sesión
-    const oldMessages = data.state?.messages || data.state?.history || data.messages || data.history || [];
+    const oldMessages = stateData.messages || stateData.history || data.messages || data.history || [];
     
     if (oldMessages.length > 0) {
       // Crear una sesión con los mensajes antiguos
       const recoveredSession = {
         id: `recovered-${Date.now()}`,
         title: 'Conversación recuperada',
-        messages: oldMessages,
+        messages: Array.isArray(oldMessages) ? oldMessages : [],
         createdAt: Date.now(),
         updatedAt: Date.now(),
         isLoading: false,
       };
 
-      // Guardar en formato actual
+      // Guardar en formato actual (formato Zustand)
       const currentData = localStorage.getItem('chat-storage');
-      let currentState: any = { state: { sessions: [], currentSessionId: null } };
+      let currentState: any = { 
+        state: { 
+          sessions: [], 
+          currentSessionId: null,
+          lastCleared: undefined,
+          totalQueriesCount: stateData.totalQueriesCount || 0,
+        },
+        version: 5 
+      };
 
       if (currentData) {
         try {
-          currentState = JSON.parse(currentData);
+          const parsed = JSON.parse(currentData);
+          // Si ya tiene estructura de Zustand, usar esa
+          if (parsed.state) {
+            currentState = parsed;
+          } else {
+            // Si es formato antiguo, crear estructura nueva
+            currentState.state = {
+              ...parsed,
+              sessions: [],
+              currentSessionId: null,
+            };
+          }
         } catch (e) {
           // Si falla, usar estado por defecto
         }
@@ -238,7 +261,7 @@ export function recoverLegacyData(): {
         currentSessionId: recoveredSession.id,
       };
 
-      // Actualizar versión
+      // Asegurar versión
       currentState.version = 5;
 
       localStorage.setItem('chat-storage', JSON.stringify(currentState));
