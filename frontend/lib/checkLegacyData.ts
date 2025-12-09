@@ -4,7 +4,7 @@
  * Ejecutar en la consola del navegador para verificar si hay datos antiguos.
  */
 
-import { findLegacyData, recoverLegacyData, getAvailableBackups } from './localStorageBackup';
+import { findLegacyData, recoverLegacyData, getAvailableBackups, restoreLatestBackup } from './localStorageBackup';
 
 /**
  * Verifica y muestra información sobre datos legacy y backups disponibles.
