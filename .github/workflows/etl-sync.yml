@@ -43,9 +43,12 @@ jobs:
           curl -sSL https://install.python-poetry.org | python3 -
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       
-      - name: Update poetry lock file
+      - name: Sync poetry lock file
         working-directory: backend
-        run: poetry lock --no-interaction || true
+        run: |
+          # Actualizar el lock file si es necesario
+          # Si ya está sincronizado, este comando no hará cambios
+          poetry lock --no-interaction
       
       - name: Install dependencies
         working-directory: backend
