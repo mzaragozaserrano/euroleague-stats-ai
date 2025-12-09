@@ -2,14 +2,18 @@
 
 ## Resumen
 
-El sistema usa una arquitectura **ETL + Backend-Centric**:
+El sistema usa una arquitectura **ETL + Backend-Centric con RAG**:
 
 ```
-API Euroleague (GitHub) --[ETL 7 AM UTC]--> Backend BD (Neon)
-                                                    ↑
-Frontend (User Chat) --[Text-to-SQL]--> Backend API --[LLM/OpenRouter]
-    ↓
-localStorage persists chat history
+API Euroleague (GitHub) --[ETL 8 AM UTC - Solo 2025]--> Backend BD (Neon)
+                                                                    ↑
+Frontend (User Chat) --[POST /api/chat]--> Backend API
+    ↓                                              ↓
+localStorage (con backup)             1. Corrección (OpenAI via OpenRouter)
+                                      2. RAG (OpenAI embeddings)
+                                      3. SQL Gen (OpenRouter)
+                                      4. Ejecución SQL
+                                      5. Retorno JSON
 ```
 
 ## Tipos de Consultas Soportadas
@@ -23,10 +27,12 @@ localStorage persists chat history
 
 **Flujo:**
 1. Frontend envía query al backend: `POST /api/chat`
-2. Backend detecta que es consulta de stats
-3. Backend extrae parámetros (temporada, estadística, top N, equipo)
-4. Backend ejecuta: `SELECT ... FROM player_season_stats WHERE season = 'E2025' ORDER BY points DESC LIMIT 10`
-5. Retorna datos + visualización (bar/line/table)
+2. **Corrección de consulta (OpenAI)**: Corrige erratas tipográficas (ej: "Campazo" → "Campazzo")
+3. **RAG (Retrieval)**: Genera embedding de query, busca esquema relevante en `schema_embeddings`
+4. Backend detecta que es consulta de stats
+5. Backend extrae parámetros (temporada, estadística, top N, equipo)
+6. Backend ejecuta: `SELECT ... FROM player_season_stats WHERE season = 'E2025' ORDER BY points DESC LIMIT 10`
+7. Retorna datos + visualización (bar/line/table)
 
 **Implementación Backend:**
 ```python
@@ -50,7 +56,7 @@ if self._requires_player_stats(query):
 - "Estadísticas de Larkin en cada partido"
 - "¿Cuántos puntos anotó Larkin contra el Milan?"
 
-**Razón:** La tabla `player_stats_games` aún no está poblada en la BD.
+**Razón:** La tabla `player_game_stats` aún no está poblada en la BD. Solo tenemos datos de temporada 2025 agregados por temporada.
 
 **Comportamiento:**
 1. Backend detecta keyword: "partidos de", "en el partido", "por cada partido"
@@ -91,10 +97,12 @@ if self._is_games_query_unavailable(query):
 
 **Flujo:**
 1. Frontend envía query
-2. Backend detecta que NO es de stats
-3. Backend usa LLM para generar SQL
-4. Backend ejecuta SQL contra BD
-5. Retorna resultados
+2. **Corrección de consulta (OpenAI)**: Normaliza nombres y corrige erratas
+3. **RAG (Retrieval)**: Recupera esquema relevante usando embeddings
+4. Backend detecta que NO es de stats
+5. Backend usa LLM (OpenRouter) para generar SQL con contexto de esquema
+6. Backend ejecuta SQL contra BD
+7. Retorna resultados
 
 ## Persistencia Frontend
 
@@ -105,34 +113,48 @@ if self._is_games_query_unavailable(query):
 **Estructura:**
 ```typescript
 {
-  messages: ChatMessage[],           // Todos los mensajes (user + assistant)
-  history: ChatMessage[],            // Historial para backend
-  lastCleared: number,               // Timestamp de última limpieza
-  totalQueriesCount: number          // Contador total de queries
+  state: {
+    sessions: Session[],              // Múltiples sesiones de chat
+    currentSessionId: string | null   // ID de sesión activa
+  },
+  version: 5                          // Versión actual del schema
 }
 ```
 
+**Sistema de Backup:**
+- Backup automático antes de cada migración
+- Últimos 5 backups almacenados en localStorage
+- Recuperación automática de datos legacy al iniciar
+- Funciones disponibles en consola: `checkLegacyData()`, `getBackups()`, `restoreLatestBackup()`
+
 **Ciclo de vida:**
 1. Usuario escribe mensaje
-2. Frontend agrega a `messages[]` y `history[]`
+2. Frontend agrega a sesión actual
 3. localStorage se actualiza automáticamente (Zustand persist)
-4. Usuario cierra tab/navegador
-5. Usuario vuelve → localStorage restaura chat automáticamente
+4. Backup automático antes de migraciones
+5. Usuario cierra tab/navegador
+6. Usuario vuelve → localStorage restaura chat automáticamente
+7. Sistema detecta y recupera datos legacy si existen
 
 **NO hay caché de stats** en el frontend. Todos los datos vienen del backend.
 
 ## Limitaciones y Próximos Pasos
 
 ### Limitaciones Actuales:
-- ❌ No se pueden consultar estadísticas por partido individual
+- ❌ **Base de datos solo contiene temporada 2025** (jugadores, equipos, estadísticas)
+- ❌ No se pueden consultar estadísticas por partido individual (`player_game_stats` no está poblada)
 - ❌ No se pueden hacer box scores
-- ❌ No se pueden filtrar stats por rango de fechas (solo por temporada)
+- ❌ No se pueden filtrar stats por rango de fechas (solo por temporada E2025)
+- ✅ RAG funciona con fallback seguro si OpenAI API key no está configurada
+- ✅ Sistema de corrección de consultas mejora precisión de nombres
 
 ### Próximos Pasos (Future):
-1. Poblar tabla `player_stats_games` con ETL
-2. Implementar queries a nivel de partido
-3. Agregar análisis temporal (por jornada, por fecha)
-4. Soportar visualizaciones avanzadas (shot charts, heatmaps)
+1. Extender ETL para ingerir múltiples temporadas (2023, 2024, 2025)
+2. Poblar tabla `player_game_stats` con ETL
+3. Implementar queries a nivel de partido
+4. Agregar análisis temporal (por jornada, por fecha)
+5. Soportar visualizaciones avanzadas (shot charts, heatmaps)
+6. Mejorar RAG con más ejemplos SQL y metadatos de esquema
 
 ## Ejemplos de Flujo Real
 

@@ -1,8 +1,28 @@
 # Nueva Arquitectura: Caché Frontend + API Euroleague
 
-## Resumen
+## ⚠️ ESTADO: DESACTUALIZADO
 
-La base de datos **solo almacena metadatos** (códigos de equipos y jugadores) necesarios para hacer llamadas a la API de Euroleague. Los **datos reales** (estadísticas) se obtienen directamente de la API y se cachean en el frontend.
+**Este documento describe una arquitectura propuesta que NO está implementada actualmente.**
+
+## Arquitectura Real Actual
+
+La arquitectura actual es **Backend-Centric con ETL**:
+- Base de datos almacena **datos reales** (jugadores, equipos, estadísticas) de temporada 2025
+- ETL diario ingiere datos desde API Euroleague a PostgreSQL
+- Frontend consulta backend vía Text-to-SQL
+- NO hay caché de stats en frontend (solo historial de chat en localStorage)
+
+Ver `docs/architecture.md` y `docs/QUERY_FLOW_NEW_ARCHITECTURE.md` para arquitectura actual.
+
+---
+
+## Arquitectura Propuesta (No Implementada)
+
+La siguiente arquitectura fue propuesta pero NO está implementada. Se mantiene como referencia futura.
+
+### Resumen Propuesto
+
+La base de datos **solo almacenaría metadatos** (códigos de equipos y jugadores) necesarios para hacer llamadas a la API de Euroleague. Los **datos reales** (estadísticas) se obtendrían directamente de la API y se cachearían en el frontend.
 
 ## Flujo de Datos
 
