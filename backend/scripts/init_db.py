@@ -9,6 +9,7 @@ import asyncio
 import logging
 import sys
 import os
+import socket
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from pydantic import ValidationError
@@ -60,22 +61,44 @@ async def test_connection():
         logger.info("✓ Conexión a la base de datos exitosa")
         return True
         
-    except OperationalError as e:
+    except (OperationalError, socket.gaierror) as e:
         error_msg = str(e)
+        error_type = type(e).__name__
         logger.error(f"❌ ERROR de conexión a la base de datos: {error_msg}")
+        logger.error(f"   Tipo de error: {error_type}")
         
-        if "Temporary failure in name resolution" in error_msg or "[Errno -3]" in error_msg:
+        # Detectar errores de resolución DNS/hostname
+        if (error_type == "gaierror" or 
+            "Temporary failure in name resolution" in error_msg or 
+            "[Errno -3]" in error_msg or
+            "Name or service not known" in error_msg):
             logger.error("\n🔍 DIAGNÓSTICO:")
             logger.error("   El sistema no puede resolver el hostname de la base de datos.")
             logger.error("   Posibles causas:")
-            logger.error("   1. El hostname en DATABASE_URL es incorrecto")
-            logger.error("   2. Problemas de red/DNS en el entorno de ejecución")
+            logger.error("   1. El hostname en DATABASE_URL es incorrecto o está mal formateado")
+            logger.error("   2. Problemas de red/DNS en el entorno de ejecución (GitHub Actions)")
             logger.error("   3. La base de datos Neon no es accesible desde este entorno")
+            logger.error("   4. El hostname contiene caracteres especiales o espacios")
             logger.error("\n💡 SOLUCIONES:")
             logger.error("   1. Verifica que DATABASE_URL esté configurado correctamente en GitHub Secrets")
             logger.error("   2. Verifica que la URL use el formato: postgresql+asyncpg://user:pass@host/db?ssl=require")
-            logger.error("   3. Verifica que el hostname de Neon sea accesible desde GitHub Actions")
-            logger.error("   4. Si usas Neon, verifica que la IP no esté bloqueada por firewall")
+            logger.error("   3. Extrae el hostname de la URL y verifica que sea correcto:")
+            try:
+                db_url = os.getenv("DATABASE_URL") or settings.database_url
+                if db_url:
+                    # Intentar extraer hostname para diagnóstico
+                    if "@" in db_url and "/" in db_url:
+                        host_part = db_url.split("@")[1].split("/")[0]
+                        if "?" in host_part:
+                            hostname = host_part.split("?")[0]
+                        else:
+                            hostname = host_part
+                        logger.error(f"      Hostname detectado: {hostname}")
+                        logger.error(f"      Verifica que '{hostname}' sea un hostname válido de Neon")
+            except Exception:
+                pass
+            logger.error("   4. Verifica que el hostname de Neon sea accesible desde GitHub Actions")
+            logger.error("   5. Si usas Neon, verifica que no haya restricciones de firewall/IP")
         elif "password authentication failed" in error_msg.lower():
             logger.error("\n🔍 DIAGNÓSTICO:")
             logger.error("   Las credenciales de la base de datos son incorrectas.")
@@ -89,8 +112,17 @@ async def test_connection():
         
         sys.exit(1)
     except Exception as e:
-        logger.error(f"❌ ERROR inesperado al probar conexión: {e}")
-        logger.error(f"   Tipo de error: {type(e).__name__}")
+        error_msg = str(e)
+        error_type = type(e).__name__
+        logger.error(f"❌ ERROR inesperado al probar conexión: {error_msg}")
+        logger.error(f"   Tipo de error: {error_type}")
+        
+        # Si es un error de DNS pero no fue capturado antes
+        if "name resolution" in error_msg.lower() or "[Errno -3]" in error_msg:
+            logger.error("\n🔍 DIAGNÓSTICO:")
+            logger.error("   Error de resolución DNS detectado.")
+            logger.error("   Verifica que DATABASE_URL contenga un hostname válido.")
+        
         sys.exit(1)
 
 
@@ -216,10 +248,14 @@ async def run_migrations():
         
         logger.info("✓ Migraciones completadas exitosamente")
         
-    except OperationalError as e:
+    except (OperationalError, socket.gaierror) as e:
         error_msg = str(e)
+        error_type = type(e).__name__
         logger.error(f"❌ ERROR de conexión durante migraciones: {error_msg}")
-        if "Temporary failure in name resolution" in error_msg or "[Errno -3]" in error_msg:
+        logger.error(f"   Tipo de error: {error_type}")
+        if (error_type == "gaierror" or 
+            "Temporary failure in name resolution" in error_msg or 
+            "[Errno -3]" in error_msg):
             logger.error("   La conexión se perdió durante la ejecución de migraciones.")
             logger.error("   Verifica la conectividad de red y la configuración de DATABASE_URL.")
         sys.exit(1)
@@ -254,10 +290,14 @@ async def verify_schema():
         
         logger.info("✓ Verificación completada")
         
-    except OperationalError as e:
+    except (OperationalError, socket.gaierror) as e:
         error_msg = str(e)
+        error_type = type(e).__name__
         logger.error(f"❌ ERROR de conexión al verificar esquema: {error_msg}")
-        if "Temporary failure in name resolution" in error_msg or "[Errno -3]" in error_msg:
+        logger.error(f"   Tipo de error: {error_type}")
+        if (error_type == "gaierror" or 
+            "Temporary failure in name resolution" in error_msg or 
+            "[Errno -3]" in error_msg):
             logger.error("   La conexión se perdió durante la verificación del esquema.")
             logger.error("   Verifica la conectividad de red y la configuración de DATABASE_URL.")
         sys.exit(1)
