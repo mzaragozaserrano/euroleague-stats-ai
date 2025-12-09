@@ -66,7 +66,7 @@ export function MessageList({ messages, isLoading = false }: MessageListProps) {
           <div className="bg-blue-50 dark:bg-blue-950/30 rounded-xl p-4 border border-blue-200 dark:border-blue-800/30">
             <p className="text-xs md:text-sm text-slate-600 dark:text-slate-400 font-light">
               <span className="font-semibold text-slate-900 dark:text-slate-100">Ejemplos:</span><br />
-              &quot;¿Cuántos puntos promedio anotó Micic?&quot;<br />
+              &quot;¿Cuántos puntos acumula Micic?&quot;<br />
               &quot;Compara los triples de Larkin vs Poirier&quot;
             </p>
           </div>

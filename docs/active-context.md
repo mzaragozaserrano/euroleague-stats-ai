@@ -1,9 +1,15 @@
 # Active Context
 
 ## Current Focus
-**Fase 3 Frontend MVP COMPLETADA - Sistema RAG Implementado**
+**MVP COMPLETADO ✅ - Enero 2025**
 
-Todas las tareas de frontend completadas. Sistema RAG implementado con fallback seguro. Sistema de backup automático para localStorage funcionando.
+Todas las fases del MVP (0-3) han sido completadas exitosamente:
+- ✅ Fase 0: Scaffolding & Setup
+- ✅ Fase 1: Data Pipeline MVP
+- ✅ Fase 2: Backend & AI Engine
+- ✅ Fase 3: Frontend MVP
+
+Sistema completamente funcional con ETL automático, motor Text-to-SQL con RAG, frontend con visualizaciones y persistencia inteligente.
 
 ## Recent Decisions & Achievements
 - **ETL Completed:** Pipeline robusto ejecutándose diariamente en GitHub Actions (8 AM UTC). Solo ingiere temporada 2025 por defecto.
@@ -25,7 +31,10 @@ Todas las tareas de frontend completadas. Sistema RAG implementado con fallback 
 - **RAG Implementation:** Sistema completo con migración, scripts de inicialización y fallback seguro.
 
 ## Active Problems / Blockers
-- **None currently.** Phase 2 (Backend & AI Engine) 100% complete. Phase 3 Frontend MVP completada.
+- **None currently.** MVP completamente funcional. Todas las fases 0-3 completadas.
+
+## Data Source Attribution
+Este proyecto utiliza [`euroleague-api`](https://github.com/giasemidis/euroleague_api) (por [@giasemidis](https://github.com/giasemidis)) como wrapper de Python para acceder a la API oficial de Euroleague. Ver `docs/architecture.md` para más detalles sobre su uso en el pipeline ETL.
 
 ## Current Architecture State
 - **Base de Datos:** Solo temporada 2025 (E2025)

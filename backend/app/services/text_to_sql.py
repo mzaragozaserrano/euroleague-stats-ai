@@ -88,26 +88,29 @@ class TextToSQLService:
                 return query
             
             correction_prompt = """Eres un asistente experto en consultas sobre estadísticas de baloncesto de la Euroleague.
-Tu tarea es corregir erratas tipográficas y normalizar la consulta del usuario, manteniendo su intención original.
+Tu tarea es corregir erratas tipográficas OBVIAS y normalizar la consulta del usuario, manteniendo su intención original.
 
-INSTRUCCIONES:
-1. Corrige errores de ortografía y tipografía comunes
-2. Normaliza nombres de jugadores y equipos a sus formas más comunes:
-   - "Larkin" (no "Larkyn", "Larkin", etc.)
-   - "Llull" (no "Llul", "Lull", etc.)
-   - "Campazzo" (no "Campazo", "Campazo", etc.)
-   - "Real Madrid" (no "real madrid", "RealMadrid", etc.)
-   - "Barcelona" (no "Barsa", "Barça", etc.)
-   - "Micic" (no "Micic", "Micić", etc.)
-3. Mantén la intención original de la consulta
-4. NO cambies el significado de la consulta
-5. Si la consulta ya está correcta, devuélvela tal cual
+REGLAS CRÍTICAS:
+1. **CONSERVADORISMO PRIMERO**: Si un nombre de jugador parece correcto, NO lo cambies. Solo corrige errores OBVIOS de tipografía.
+2. **NO confundas nombres similares**: "Okeke" y "Okobo" son jugadores DIFERENTES. Si el usuario dice "Okeke", NO lo cambies a "Okobo" ni viceversa.
+3. Corrige solo errores tipográficos OBVIOS:
+   - "Larkyn" -> "Larkin" (error claro de tipeo)
+   - "Llul" -> "Llull" (falta una letra)
+   - "Campazo" -> "Campazzo" (falta una z)
+4. Normaliza nombres de equipos a formas estándar:
+   - "real madrid" -> "Real Madrid"
+   - "barcelona" -> "Barcelona"
+5. Mantén la intención original de la consulta
+6. NO cambies el significado de la consulta
+7. Si la consulta ya está correcta, devuélvela tal cual SIN MODIFICACIONES
 
-EJEMPLOS:
-- "puntos de Larkyn" -> "puntos de Larkin"
-- "estadisticas de Campazo" -> "estadísticas de Campazzo"
-- "maximo anotador del real madrid" -> "máximo anotador del Real Madrid"
-- "estadisticas de Llul" -> "estadísticas de Llull"
+EJEMPLOS CORRECTOS:
+- "puntos de Larkyn" -> "puntos de Larkin" (error tipográfico obvio)
+- "estadisticas de Campazo" -> "estadísticas de Campazzo" (falta z)
+- "maximo anotador del real madrid" -> "máximo anotador del Real Madrid" (normalización de equipo)
+- "estadisticas de Llul" -> "estadísticas de Llull" (falta l)
+- "asistencias de Okeke" -> "asistencias de Okeke" (SIN CAMBIOS - nombre correcto)
+- "asistencias de Okobo" -> "asistencias de Okobo" (SIN CAMBIOS - nombre correcto)
 - "top 5 anotadores" -> "top 5 anotadores" (sin cambios)
 
 Responde SOLO con la consulta corregida, sin explicaciones adicionales."""
@@ -434,14 +437,24 @@ AVAILABLE SCHEMA:
 GENERAL RULES:
 1. You MUST return ONLY a JSON object with "sql" and "visualization_type" keys.
 2. The "sql" field must contain a valid PostgreSQL SELECT query.
-3. The "visualization_type" must be one of: 'table', 'bar', 'line', 'scatter', 'text'.
+3. **CRITICAL - PLAYER NAMES:** Use EXACTLY the player names mentioned in the user's query. Do NOT confuse similar names:
+   - "Okeke" and "Okobo" are DIFFERENT players. If user says "Okeke", use "Okeke" (not "Okobo").
+   - Use ILIKE for case-insensitive matching: `p.name ILIKE '%Okeke%'` (not `p.name ILIKE '%Okobo%'`).
+   - Only correct OBVIOUS typos (e.g., "Larkyn" → "Larkin"), but NEVER change correct names to similar ones.
+   - **NAMES WITH PREPOSITIONS/ARTICLES:** For names with "de", "del", "van", "von", etc. (e.g., "Nando de Colo", "Juan Carlos Navarro"), use MULTIPLE ILIKE patterns with OR to handle different database formats:
+     - ✅ CORRECT: `(p.name ILIKE '%Nando de Colo%' OR p.name ILIKE '%Nando%Colo%' OR p.name ILIKE '%de Colo%')`
+     - ✅ CORRECT: This handles formats like "Nando de Colo", "NANDO DE COLO", "COLÓ, NANDO DE", etc.
+     - ❌ WRONG: `p.name ILIKE '%Colo%'` (might match other players, too generic)
+     - ❌ WRONG: `p.name ILIKE '%Nando de Colo%'` (only one pattern, might miss if DB has different format)
+     - **CRITICAL:** Always use OR with multiple patterns when the name contains prepositions/articles to maximize match chances.
+4. The "visualization_type" must be one of: 'table', 'bar', 'line', 'scatter', 'text'.
    - Use 'text' ONLY for queries that return a SINGLE value (1 row AND 1 column). Examples: "en qué equipo juega X", "cuántos partidos jugó X".
    - Use 'table' for:
      * Multi-row results (2+ rows) - ALWAYS use 'table' for comparisons between seasons, players, etc.
      * Single row with 2+ columns - ALWAYS use 'table' when there are multiple columns.
      * Any structured list or comparison.
    - Use 'bar', 'line', 'scatter' for comparative data or trends (only when explicitly requested for charts).
-4. NEVER include DROP, DELETE, TRUNCATE, or ALTER statements.
+5. NEVER include DROP, DELETE, TRUNCATE, or ALTER statements.
 5. Always use table aliases for readability (p, ps, t, g).
 6. Prioritize `player_season_stats` for season totals/averages queries.
 7. Use `player_stats_games` only when specific game details are needed.
@@ -515,6 +528,13 @@ Query: "Estadisticas de Llull"
   "sql": "SELECT p.name AS Jugador, ps.points AS Puntos, ps.assists AS Asistencias, ps.rebounds AS Rebotes, ps.\"threePointsMade\" AS Triples, ps.pir AS Valoracion, ps.games_played AS Partidos FROM players p JOIN player_season_stats ps ON p.id = ps.player_id WHERE p.name ILIKE '%Llull%' AND ps.season = 'E2025';",
   "visualization_type": "table"
 }}
+
+Query: "estadisticas de Nando de Colo"
+{{
+  "sql": "SELECT p.name AS Jugador, ps.points AS Puntos, ps.assists AS Asistencias, ps.rebounds AS Rebotes, ps.\"threePointsMade\" AS Triples, ps.pir AS Valoracion, ps.games_played AS Partidos FROM players p JOIN player_season_stats ps ON p.id = ps.player_id WHERE (p.name ILIKE '%Nando de Colo%' OR p.name ILIKE '%Nando%Colo%' OR p.name ILIKE '%de Colo%') AND ps.season = 'E2022';",
+  "visualization_type": "table"
+}}
+NOTE: For names with prepositions like "de", "del", use multiple ILIKE patterns with OR to handle different database formats (e.g., "Nando de Colo", "NANDO DE COLO", "COLÓ, NANDO DE").
 
 Query: "Cuales son los jugadores del Real Madrid"
 {{

@@ -9,6 +9,7 @@
     - **OpenAI API**: Usado para embeddings (`text-embedding-3-small`) y corrección de consultas (input).
     - **OpenRouter**: Usado para generación de SQL (output) con modelo `openai/gpt-3.5-turbo`.
     - **RAG (Retrieval Augmented Generation)**: Sistema implementado con fallback a esquema hardcodeado.
+- **Data Source:** [`euroleague-api`](https://github.com/giasemidis/euroleague_api) - Python wrapper para la API oficial de Euroleague. Usado en el pipeline ETL para extraer datos de equipos, jugadores y estadísticas.
 
 ## 2. Project Structure (Monorepo)
 ```text
@@ -72,7 +73,30 @@ root/
   - **NO HAY base de datos embebida en el frontend** (sin IndexedDB, SQLite, u otros).
   - Todos los datos se consultan del backend (Neon PostgreSQL).
 
-## 4. Flujo de Datos
+## 4. Fuente de Datos y ETL
+
+### euroleague-api Wrapper
+
+Este proyecto utiliza [`euroleague-api`](https://github.com/giasemidis/euroleague_api) (por [@giasemidis](https://github.com/giasemidis)) como wrapper de Python para acceder a la API oficial de Euroleague.
+
+**Uso en el proyecto:**
+- **Paquete:** `euroleague-api` (versión >=0.1.0)
+- **Ubicación:** `backend/pyproject.toml`
+- **Módulos utilizados:**
+  - `euroleague_api.standings.Standings` - Para obtener equipos
+  - `euroleague_api.player_stats.PlayerStats` - Para obtener jugadores y estadísticas
+  - `euroleague_api.boxscore_data.BoxScoreData` - Para obtener datos de partidos (futuro)
+
+**Scripts ETL que lo utilizan:**
+- `backend/etl/ingest_teams.py` - Ingesta de equipos
+- `backend/etl/ingest_players.py` - Ingesta de jugadores
+- `backend/etl/ingest_player_season_stats.py` - Ingesta de estadísticas de temporada
+- `backend/etl/ingest_games.py` - Ingesta de partidos (preparado para futuro)
+- `backend/etl/ingest_boxscores.py` - Ingesta de box scores (preparado para futuro)
+
+**Licencia:** El proyecto `euroleague-api` utiliza licencia MIT, compatible con nuestra licencia MIT.
+
+## 5. Flujo de Datos
 
 ### Arquitectura Actual:
 

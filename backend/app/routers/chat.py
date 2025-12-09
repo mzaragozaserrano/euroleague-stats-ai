@@ -376,31 +376,55 @@ async def chat_endpoint(
         if len(final_data) == 0:
             final_visualization = "table"
         else:
-            # Corregir visualization_type basado en el resultado real
+            # ====================================================================
+            # PASO 4.1: Filtrar columna de temporada ANTES de determinar visualización
+            # ====================================================================
+            # Filtrar temporada de final_data si solo hay una y la consulta no la menciona
+            temp_service = ResponseGeneratorService(api_key=settings.openrouter_api_key)
+            final_data_filtered = temp_service._filter_season_column_if_not_needed(final_data, request.query)
+            
+            # Si se filtró alguna columna, usar los datos filtrados para todo
+            if len(final_data) > 0 and len(final_data_filtered) > 0:
+                original_cols = len(final_data[0].keys())
+                filtered_cols = len(final_data_filtered[0].keys())
+                if filtered_cols < original_cols:
+                    logger.info(f"Columna de temporada filtrada ({original_cols} → {filtered_cols} columnas)")
+                    final_data = final_data_filtered
+            
+            # Corregir visualization_type basado en el resultado real (usando datos filtrados)
             num_rows = len(final_data)
             num_columns = len(final_data[0].keys()) if final_data else 0
             
-            # Reglas estrictas para tipo de visualización:
-            # - 2+ filas → SIEMPRE 'table' (comparaciones, listas, etc.)
-            # - 1 fila con 2+ columnas → SIEMPRE 'table'
-            # - 1 fila con 1 columna → puede ser 'text' (solo valores únicos)
-            # - Gráficos (bar/line/scatter) se mantienen si fueron solicitados explícitamente
+            # Reglas para tipo de visualización:
+            # - 1 fila y ≤3 columnas → 'text' (respuesta simple)
+            # - 2 filas y ≤2 columnas → 'text' (comparación simple)
+            # - Resto → 'table' o gráfico según corresponda
             
-            if num_rows >= 2:
-                # Dos o más filas → SIEMPRE tabla (comparaciones de temporadas, jugadores, etc.)
-                if final_visualization == "text":
-                    final_visualization = "table"
-                    logger.info(f"Corregido a 'table': {num_rows} filas (siempre tabla para múltiples filas)")
-            elif num_rows == 1 and num_columns >= 2:
-                # Una fila con múltiples columnas → SIEMPRE tabla
-                if final_visualization == "text":
-                    final_visualization = "table"
-                    logger.info(f"Corregido a 'table': 1 fila con {num_columns} columnas (siempre tabla para múltiples columnas)")
-            elif num_rows == 1 and num_columns == 1:
-                # Una fila, una columna → puede ser 'text' (solo si no es gráfico)
+            is_simple_response = (
+                (num_rows == 1 and num_columns <= 3) or
+                (num_rows == 2 and num_columns <= 2)
+            )
+            
+            if is_simple_response:
+                # Respuesta simple: usar 'text' (no mostrar tabla de datos)
                 if final_visualization not in ['bar', 'line', 'scatter']:
                     final_visualization = "text"
-                    logger.info(f"Mantenido como 'text': 1 fila, 1 columna (valor único)")
+                    logger.info(f"Corregido a 'text': {num_rows} fila(s), {num_columns} columna(s) (respuesta simple)")
+            elif num_rows >= 3:
+                # Tres o más filas → tabla (listas, rankings, etc.)
+                if final_visualization == "text":
+                    final_visualization = "table"
+                    logger.info(f"Corregido a 'table': {num_rows} filas (siempre tabla para 3+ filas)")
+            elif num_rows == 2 and num_columns > 2:
+                # Dos filas con más de 2 columnas → tabla
+                if final_visualization == "text":
+                    final_visualization = "table"
+                    logger.info(f"Corregido a 'table': 2 filas con {num_columns} columnas")
+            elif num_rows == 1 and num_columns > 3:
+                # Una fila con más de 3 columnas → tabla
+                if final_visualization == "text":
+                    final_visualization = "table"
+                    logger.info(f"Corregido a 'table': 1 fila con {num_columns} columnas")
         
         logger.info(f"Visualización final: {final_visualization}")
 
@@ -437,6 +461,36 @@ async def chat_endpoint(
             if final_visualization == "text":
                 logger.info("Suprimiendo datos estructurados para respuesta simple (text)")
                 final_visualization = None
+                # CAPA ADICIONAL DE SEGURIDAD: Eliminar cualquier tabla del markdown si es respuesta simple
+                if has_table_in_response:
+                    logger.warning("Respuesta simple contiene tabla en markdown. Eliminando tabla...")
+                    lines = natural_response.split('\n')
+                    cleaned_lines = []
+                    skip_table = False
+                    for line in lines:
+                        # Detectar inicio de tabla (línea con | y --)
+                        if '|' in line and '--' in line:
+                            skip_table = True
+                            continue
+                        # Detectar líneas de tabla (contienen |)
+                        if skip_table and '|' in line:
+                            continue
+                        # Detectar fin de tabla (línea sin |)
+                        if skip_table and '|' not in line:
+                            skip_table = False
+                            # Si la línea no está vacía después de la tabla, incluirla
+                            if line.strip():
+                                cleaned_lines.append(line)
+                            continue
+                        # Línea normal (no es parte de tabla)
+                        cleaned_lines.append(line)
+                    natural_response = '\n'.join(cleaned_lines).strip()
+                    # Si aún tiene tabla, eliminación más agresiva
+                    if "|" in natural_response:
+                        lines = natural_response.split('\n')
+                        cleaned_lines = [line for line in lines if '|' not in line]
+                        natural_response = '\n'.join(cleaned_lines).strip()
+                    logger.info("Tabla eliminada de respuesta simple (capa adicional)")
             elif final_visualization == "table":
                 if has_table_in_response:
                     logger.info("Suprimiendo tabla visualización a favor de tabla en respuesta natural")
@@ -450,7 +504,7 @@ async def chat_endpoint(
                     final_visualization = None
         
         # ====================================================================
-        # PASO 6: Retornar
+        # PASO 7: Retornar
         # ====================================================================
         latency_ms = (time.time() - start_time) * 1000
         logger.info(f"Chat endpoint completado en {latency_ms:.2f}ms")

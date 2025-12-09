@@ -28,7 +28,7 @@ Una interfaz de inteligencia de datos para la Euroliga basada en lenguaje natura
 - 📊 **Visualización Automática**: El sistema decide automáticamente la mejor forma de mostrar los datos (Tabla, Bar Chart o Line Chart) usando Recharts.
 - 🎯 **Motor Text-to-SQL con RAG**: Utiliza Retrieval Augmented Generation sobre el esquema de base de datos para mejorar precisión en la generación de SQL. Fallback seguro si RAG no está disponible.
 - 💾 **Persistencia Inteligente**: Historial de chat almacenado en localStorage con sistema automático de backup y recuperación de datos legacy.
-- 🔄 **ETL Automático**: Pipeline diario (8 AM UTC) que ingiere datos desde la API de Euroleague. Actualmente solo temporada 2025.
+- 🔄 **ETL Automático**: Pipeline diario (8 AM UTC) que ingiere datos desde la API de Euroleague usando [`euroleague-api`](https://github.com/giasemidis/euroleague_api) como wrapper. Actualmente solo temporada 2025.
 - 🆓 **Modelo Freemium**: MVP gratuito con estadísticas básicas de temporada 2025. Arquitectura lista para Tier Pro (stats espaciales/shot-charts).
 
 ### Limitaciones Actuales
@@ -63,6 +63,7 @@ Este proyecto sigue una arquitectura dirigida por documentación. Para detalles 
   - **RAG**: Sistema de Retrieval Augmented Generation sobre esquema de BD
 - **Infraestructura**: Render (Web Services), GitHub Actions (CI/CD + ETL Cron diario).
 - **Testing**: pytest-bdd + pytest-asyncio para BDD tests.
+- **Fuente de Datos**: [`euroleague-api`](https://github.com/giasemidis/euroleague_api) - Python wrapper para la API oficial de Euroleague.
 
 ---
 
