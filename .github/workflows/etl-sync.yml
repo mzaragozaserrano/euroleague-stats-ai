@@ -102,47 +102,5 @@ jobs:
           
           asyncio.run(verify())
           "
-      
-      - name: Notify Slack on success
-        if: success()
-        continue-on-error: true
-        uses: slackapi/slack-github-action@v2.1.1
-        with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
-            {
-              "text": "✓ Euroleague ETL Pipeline completed successfully",
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": ":white_check_mark: *ETL Pipeline - Success*\n*Database:* Updated\n*Teams:* Synced\n*Players:* Synced\n*Season Stats:* Synced"
-                  }
-                }
-              ]
-            }
-      
-      - name: Notify Slack on failure
-        if: failure()
-        continue-on-error: true
-        uses: slackapi/slack-github-action@v2.1.1
-        with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
-            {
-              "text": "✗ Euroleague ETL Pipeline failed",
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": ":x: *ETL Pipeline - Failed*\n*Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
-                  }
-                }
-              ]
-            }
 
 
