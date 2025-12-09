@@ -8,10 +8,90 @@ Crea las tablas necesarias si no existen (migraciones idempotentes).
 import asyncio
 import logging
 import sys
+import os
 from sqlalchemy import text
-from app.database import async_session_maker, engine
+from sqlalchemy.exc import OperationalError
+from pydantic import ValidationError
 
 logger = logging.getLogger(__name__)
+
+# Importar con manejo de errores para configuración faltante
+try:
+    from app.database import async_session_maker, engine
+    from app.config import settings
+except ValidationError as e:
+    logging.basicConfig(level=logging.ERROR)
+    logger.error("❌ ERROR: Configuración de base de datos faltante o inválida")
+    logger.error("   Verifica que DATABASE_URL esté configurado correctamente")
+    logger.error(f"   Detalles: {e}")
+    sys.exit(1)
+except Exception as e:
+    logging.basicConfig(level=logging.ERROR)
+    logger.error(f"❌ ERROR al importar módulos de base de datos: {e}")
+    logger.error(f"   Tipo de error: {type(e).__name__}")
+    sys.exit(1)
+
+
+async def test_connection():
+    """
+    Prueba la conexión a la base de datos antes de ejecutar migraciones.
+    """
+    try:
+        logger.info("Probando conexión a la base de datos...")
+        
+        # Verificar que DATABASE_URL esté configurado
+        db_url = os.getenv("DATABASE_URL") or settings.database_url
+        if not db_url:
+            logger.error("❌ ERROR: DATABASE_URL no está configurado")
+            logger.error("   Configura la variable de entorno DATABASE_URL")
+            sys.exit(1)
+        
+        # Verificar formato básico de la URL
+        if not db_url.startswith("postgresql+asyncpg://"):
+            logger.warning("⚠️  ADVERTENCIA: DATABASE_URL no usa el formato correcto para asyncpg")
+            logger.warning("   Formato esperado: postgresql+asyncpg://user:pass@host/db?ssl=require")
+            logger.warning(f"   URL actual (oculta): {db_url[:30]}...")
+        
+        # Intentar conectar usando el engine
+        async with engine.begin() as conn:
+            result = await conn.execute(text("SELECT 1"))
+            result.scalar()
+        
+        logger.info("✓ Conexión a la base de datos exitosa")
+        return True
+        
+    except OperationalError as e:
+        error_msg = str(e)
+        logger.error(f"❌ ERROR de conexión a la base de datos: {error_msg}")
+        
+        if "Temporary failure in name resolution" in error_msg or "[Errno -3]" in error_msg:
+            logger.error("\n🔍 DIAGNÓSTICO:")
+            logger.error("   El sistema no puede resolver el hostname de la base de datos.")
+            logger.error("   Posibles causas:")
+            logger.error("   1. El hostname en DATABASE_URL es incorrecto")
+            logger.error("   2. Problemas de red/DNS en el entorno de ejecución")
+            logger.error("   3. La base de datos Neon no es accesible desde este entorno")
+            logger.error("\n💡 SOLUCIONES:")
+            logger.error("   1. Verifica que DATABASE_URL esté configurado correctamente en GitHub Secrets")
+            logger.error("   2. Verifica que la URL use el formato: postgresql+asyncpg://user:pass@host/db?ssl=require")
+            logger.error("   3. Verifica que el hostname de Neon sea accesible desde GitHub Actions")
+            logger.error("   4. Si usas Neon, verifica que la IP no esté bloqueada por firewall")
+        elif "password authentication failed" in error_msg.lower():
+            logger.error("\n🔍 DIAGNÓSTICO:")
+            logger.error("   Las credenciales de la base de datos son incorrectas.")
+            logger.error("   Verifica que DATABASE_URL contenga usuario y contraseña correctos.")
+        elif "does not exist" in error_msg.lower():
+            logger.error("\n🔍 DIAGNÓSTICO:")
+            logger.error("   La base de datos especificada no existe.")
+            logger.error("   Verifica que el nombre de la base de datos en DATABASE_URL sea correcto.")
+        else:
+            logger.error(f"\n🔍 ERROR: {error_msg}")
+        
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"❌ ERROR inesperado al probar conexión: {e}")
+        logger.error(f"   Tipo de error: {type(e).__name__}")
+        sys.exit(1)
 
 
 async def run_migrations():
@@ -126,13 +206,26 @@ async def run_migrations():
                     await session.execute(text(sql_cmd))
                     logger.debug(f"Comando {i}/{len(sql_commands)} ejecutado")
                 except Exception as e:
-                    logger.warning(f"Comando {i} falló (puede ser que ya exista): {e}")
+                    error_msg = str(e)
+                    # Solo mostrar warning si es un error esperado (tabla ya existe, etc.)
+                    if "already exists" in error_msg.lower() or "duplicate" in error_msg.lower():
+                        logger.debug(f"Comando {i} omitido (ya existe): {error_msg[:50]}...")
+                    else:
+                        logger.warning(f"Comando {i} falló: {error_msg}")
             await session.commit()
         
         logger.info("✓ Migraciones completadas exitosamente")
         
+    except OperationalError as e:
+        error_msg = str(e)
+        logger.error(f"❌ ERROR de conexión durante migraciones: {error_msg}")
+        if "Temporary failure in name resolution" in error_msg or "[Errno -3]" in error_msg:
+            logger.error("   La conexión se perdió durante la ejecución de migraciones.")
+            logger.error("   Verifica la conectividad de red y la configuración de DATABASE_URL.")
+        sys.exit(1)
     except Exception as e:
-        logger.error(f"Error en migraciones: {e}")
+        logger.error(f"❌ ERROR en migraciones: {e}")
+        logger.error(f"   Tipo de error: {type(e).__name__}")
         sys.exit(1)
 
 
@@ -161,12 +254,16 @@ async def verify_schema():
         
         logger.info("✓ Verificación completada")
         
+    except OperationalError as e:
+        error_msg = str(e)
+        logger.error(f"❌ ERROR de conexión al verificar esquema: {error_msg}")
+        if "Temporary failure in name resolution" in error_msg or "[Errno -3]" in error_msg:
+            logger.error("   La conexión se perdió durante la verificación del esquema.")
+            logger.error("   Verifica la conectividad de red y la configuración de DATABASE_URL.")
+        sys.exit(1)
     except Exception as e:
-        logger.error(f"Error verificando esquema: {e}")
-        logger.error("❌ No se pudo conectar a la base de datos. Verifica:")
-        logger.error("   1. Que DATABASE_URL esté configurado correctamente")
-        logger.error("   2. Que la URL use el formato: postgresql+asyncpg://user:pass@host/db?ssl=require")
-        logger.error("   3. Que el hostname de la BD sea accesible desde GitHub Actions")
+        logger.error(f"❌ ERROR verificando esquema: {e}")
+        logger.error(f"   Tipo de error: {type(e).__name__}")
         sys.exit(1)
 
 
@@ -180,7 +277,13 @@ async def main():
     logger.info("INICIALIZACIÓN DE BASE DE DATOS")
     logger.info("=" * 80)
     
+    # Paso 1: Probar conexión antes de ejecutar migraciones
+    await test_connection()
+    
+    # Paso 2: Ejecutar migraciones
     await run_migrations()
+    
+    # Paso 3: Verificar esquema
     await verify_schema()
     
     logger.info("\n" + "=" * 80)
