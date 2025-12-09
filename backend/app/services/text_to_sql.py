@@ -95,6 +95,7 @@ INSTRUCCIONES:
 2. Normaliza nombres de jugadores y equipos a sus formas más comunes:
    - "Larkin" (no "Larkyn", "Larkin", etc.)
    - "Llull" (no "Llul", "Lull", etc.)
+   - "Campazzo" (no "Campazo", "Campazo", etc.)
    - "Real Madrid" (no "real madrid", "RealMadrid", etc.)
    - "Barcelona" (no "Barsa", "Barça", etc.)
    - "Micic" (no "Micic", "Micić", etc.)
@@ -104,6 +105,7 @@ INSTRUCCIONES:
 
 EJEMPLOS:
 - "puntos de Larkyn" -> "puntos de Larkin"
+- "estadisticas de Campazo" -> "estadísticas de Campazzo"
 - "maximo anotador del real madrid" -> "máximo anotador del Real Madrid"
 - "estadisticas de Llul" -> "estadísticas de Llull"
 - "top 5 anotadores" -> "top 5 anotadores" (sin cambios)
@@ -135,8 +137,27 @@ Responde SOLO con la consulta corregida, sin explicaciones adicionales."""
             corrected_query = response.choices[0].message.content.strip()
             
             # Limpiar la respuesta (puede incluir prefijos como "Consulta corregida:")
-            corrected_query = corrected_query.replace("Consulta corregida:", "").strip()
-            corrected_query = corrected_query.replace("Consulta original:", "").strip()
+            # Eliminar prefijos comunes que OpenAI puede agregar
+            prefixes_to_remove = [
+                "Consulta corregida:",
+                "Consulta original:",
+                "Consulta:",
+                "Corrección:",
+                "Corregida:",
+                "Respuesta:",
+            ]
+            for prefix in prefixes_to_remove:
+                if corrected_query.lower().startswith(prefix.lower()):
+                    corrected_query = corrected_query[len(prefix):].strip()
+            
+            # También limpiar si aparece en cualquier parte del texto
+            for prefix in prefixes_to_remove:
+                corrected_query = corrected_query.replace(prefix, "").strip()
+            
+            # Si la respuesta está vacía o es muy corta, usar la original
+            if not corrected_query or len(corrected_query.strip()) < 3:
+                logger.warning(f"Corrección retornó respuesta vacía o muy corta ('{corrected_query}'), usando consulta original")
+                return query
             
             # Si la corrección es muy diferente (más del 50% de cambio), usar la original
             # para evitar cambios no deseados
@@ -155,7 +176,7 @@ Responde SOLO con la consulta corregida, sin explicaciones adicionales."""
             return corrected_query
             
         except Exception as e:
-            logger.warning(f"Error en corrección de consulta: {e}. Usando consulta original.")
+            logger.warning(f"⚠ Error en corrección de consulta: {type(e).__name__}: {str(e)[:100]}. Usando consulta original.")
             return query  # Fallback a la consulta original
     
     @staticmethod
@@ -793,13 +814,16 @@ Always respond with ONLY a JSON object. No explanation, no markdown, just JSON."
             Si hay error, sql y direct_data serán None.
         """
         try:
-            logger.info(f"Generando SQL para query: {query}")
+            logger.info(f"Generando SQL para query original: '{query}'")
             
             # CORRECCIÓN PREVIA DE LA CONSULTA (antes de cualquier otra lógica)
+            logger.debug("Iniciando corrección de consulta con OpenAI...")
             corrected_query = await self._correct_and_normalize_query(query, conversation_history)
             if corrected_query != query:
-                logger.info(f"Usando consulta corregida: {corrected_query}")
+                logger.info(f"✓ Consulta corregida aplicada: '{query}' -> '{corrected_query}'")
                 query = corrected_query  # Usar la consulta corregida para el resto del flujo
+            else:
+                logger.debug("Consulta no requirió corrección (ya está correcta)")
             
             # DETECTAR SI REQUIERE STATS DE JUGADORES
             requires_stats = self._requires_player_stats(query)

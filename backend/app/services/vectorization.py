@@ -167,7 +167,9 @@ class VectorizationService:
 
         except Exception as e:
             logger.error(f"Error recuperando esquema relevante: {e}")
-            raise
+            # Si la tabla no existe o hay error, retornar lista vacía para que use fallback
+            # No lanzar excepción para permitir fallback seguro
+            return []
 
     async def clear_schema_embeddings(self, session: AsyncSession) -> int:
         """
