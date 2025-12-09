@@ -797,13 +797,16 @@ Always respond with ONLY a JSON object. No explanation, no markdown, just JSON."
             Si hay error, sql y direct_data serán None.
         """
         try:
-            logger.info(f"Generando SQL para query: {query}")
+            logger.info(f"Generando SQL para query original: '{query}'")
             
             # CORRECCIÓN PREVIA DE LA CONSULTA (antes de cualquier otra lógica)
+            logger.debug("Iniciando corrección de consulta con OpenAI...")
             corrected_query = await self._correct_and_normalize_query(query, conversation_history)
             if corrected_query != query:
-                logger.info(f"Usando consulta corregida: {corrected_query}")
+                logger.info(f"✓ Consulta corregida aplicada: '{query}' -> '{corrected_query}'")
                 query = corrected_query  # Usar la consulta corregida para el resto del flujo
+            else:
+                logger.debug("Consulta no requirió corrección (ya está correcta)")
             
             # DETECTAR SI REQUIERE STATS DE JUGADORES
             requires_stats = self._requires_player_stats(query)
