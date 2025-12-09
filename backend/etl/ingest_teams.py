@@ -173,8 +173,26 @@ async def upsert_teams(teams: List[Dict[str, Any]]) -> int:
             return count
             
     except Exception as e:
+        error_msg = str(e).lower()
         logger.error(f"Error insertando equipos en BD: {e}")
-        await session.rollback()
+        
+        # Detectar errores de conexión específicos y proporcionar contexto útil
+        if 'temporary failure in name resolution' in error_msg or 'name resolution' in error_msg:
+            logger.error("❌ Error de resolución DNS: No se puede resolver el hostname de la base de datos")
+            logger.error("   Verifica que DATABASE_URL esté configurado correctamente en GitHub Secrets")
+            logger.error("   Formato esperado: postgresql+asyncpg://user:pass@ep-xxx.neon.tech/dbname?ssl=require")
+        elif 'connection' in error_msg or 'timeout' in error_msg or 'network' in error_msg:
+            logger.error("❌ Error de conexión a la base de datos")
+            logger.error("   Verifica que el hostname de Neon sea accesible desde GitHub Actions")
+            logger.error("   Verifica que DATABASE_URL tenga el formato correcto")
+        elif 'authentication' in error_msg or 'password' in error_msg:
+            logger.error("❌ Error de autenticación con la base de datos")
+            logger.error("   Verifica que las credenciales en DATABASE_URL sean correctas")
+        
+        try:
+            await session.rollback()
+        except Exception:
+            pass  # Si ya falló la conexión, rollback puede fallar también
         raise
 
 
