@@ -1,56 +1,65 @@
-from sqlalchemy import Column, Integer, String, Date, DateTime, Numeric, ForeignKey, Decimal
+"""
+Modelo SQLAlchemy para tabla 'player_season_stats'.
+Almacena estadísticas agregadas de jugadores por temporada.
+"""
+
+from sqlalchemy import Column, String, Integer, Float, ForeignKey, Index
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
+import uuid
 from app.database import Base
 
 
 class PlayerSeasonStats(Base):
     """
-    Modelo SQLAlchemy para la tabla 'player_season_stats'.
-    Almacena estadísticas agregadas de jugadores por temporada.
+    Modelo de Estadísticas por Temporada.
     
-    Estos datos se populan diariamente a las 7 AM desde euroleague_api.
+    Datos agregados de un jugador en una temporada específica.
+    Poblado por ETL diario a las 7 AM desde euroleague_api.
+    
+    Atributos:
+        id: UUID único
+        player_id: FK a players.id
+        season: Código de temporada (E2025, E2024, etc.)
+        games_played: Número de partidos jugados
+        points: Total de puntos anotados
+        rebounds: Total de rebotes
+        assists: Total de asistencias
+        steals: Total de robos
+        blocks: Total de bloqueos
+        turnovers: Total de pérdidas
+        threePointsMade: Total de triples anotados
+        pir: Player Efficiency Rating
+        created_at: Timestamp de creación
+        updated_at: Timestamp de última actualización
     """
 
     __tablename__ = "player_season_stats"
 
-    id = Column(Integer, primary_key=True, index=True)
-    player_id = Column(
-        Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    season = Column(String(10), nullable=False, index=True)  # "E2025", "E2024"
-    
-    # Estadísticas básicas
-    games_played = Column(Integer, nullable=True)
-    points = Column(Decimal(5, 2), nullable=True, index=True)
-    rebounds = Column(Decimal(5, 2), nullable=True, index=True)
-    assists = Column(Decimal(5, 2), nullable=True, index=True)
-    steals = Column(Decimal(5, 2), nullable=True)
-    blocks = Column(Decimal(5, 2), nullable=True)
-    turnovers = Column(Decimal(5, 2), nullable=True)
-    
-    # Tiros
-    fg2_made = Column(Decimal(5, 2), nullable=True)
-    fg2_attempted = Column(Decimal(5, 2), nullable=True)
-    fg3_made = Column(Decimal(5, 2), nullable=True)
-    fg3_attempted = Column(Decimal(5, 2), nullable=True)
-    ft_made = Column(Decimal(5, 2), nullable=True)
-    ft_attempted = Column(Decimal(5, 2), nullable=True)
-    
-    # Faltas
-    fouls_drawn = Column(Integer, nullable=True)
-    fouls_committed = Column(Integer, nullable=True)
-    
-    # Eficiencia
-    pir = Column(Decimal(5, 2), nullable=True)  # Performance Index Rating
-    
-    # Metadata
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    player_id = Column(UUID(as_uuid=True), ForeignKey("players.id"), nullable=False, index=True)
+    season = Column(String(10), nullable=False, index=True)  # E2025, E2024, etc.
+    games_played = Column(Integer, default=0)
+    points = Column(Float, default=0.0)
+    rebounds = Column(Float, default=0.0)
+    assists = Column(Float, default=0.0)
+    steals = Column(Float, default=0.0)
+    blocks = Column(Float, default=0.0)
+    turnovers = Column(Float, default=0.0)
+    threePointsMade = Column(Float, default=0.0)
+    pir = Column(Float, default=0.0)
+    created_at = Column(String(50), default=lambda: datetime.utcnow().isoformat(), nullable=False)
+    updated_at = Column(String(50), default=lambda: datetime.utcnow().isoformat(), nullable=False)
 
     # Relaciones
     player = relationship("Player", back_populates="season_stats")
 
+    # Índice compuesto para queries rápidas por temporada + jugador
+    __table_args__ = (
+        Index("ix_player_season_stats_player_season", "player_id", "season"),
+    )
+
     def __repr__(self):
-        return f"<PlayerSeasonStats(player_id={self.player_id}, season='{self.season}', points={self.points})>"
+        return f"<PlayerSeasonStats(player_id={self.player_id}, season={self.season}, points={self.points})>"
 

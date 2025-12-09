@@ -17,6 +17,12 @@ export function ChatInput({ onSubmit, disabled = false, debounceMs = 300 }: Chat
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout>();
   const isLoading = useChatStore((state) => state.isLoading);
+  const currentSessionId = useChatStore((state) => state.currentSessionId);
+
+  // Reset isSubmitting cuando cambia la sesión actual
+  useEffect(() => {
+    setIsSubmitting(false);
+  }, [currentSessionId]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -90,7 +96,7 @@ export function ChatInput({ onSubmit, disabled = false, debounceMs = 300 }: Chat
 
   return (
     <form onSubmit={handleSubmit} className="w-full">
-      <div className="flex gap-3 items-end">
+      <div className="flex gap-3 items-center">
         <div className="flex-1 relative">
           <textarea
             ref={textareaRef}
@@ -107,7 +113,7 @@ export function ChatInput({ onSubmit, disabled = false, debounceMs = 300 }: Chat
           type="submit"
           disabled={!input.trim() || isLoading || disabled || isSubmitting}
           size="default"
-          className="mb-0 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 dark:from-blue-500 dark:to-blue-600 dark:hover:from-blue-600 dark:hover:to-blue-700 text-white font-semibold shadow-lg hover:shadow-xl hover:shadow-blue-500/30 dark:hover:shadow-blue-500/20 transition-all duration-200 disabled:shadow-none disabled:opacity-60 rounded-xl px-6 py-2.5 min-h-12"
+          className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 dark:from-blue-500 dark:to-blue-600 dark:hover:from-blue-600 dark:hover:to-blue-700 text-white font-semibold shadow-lg hover:shadow-xl hover:shadow-blue-500/30 dark:hover:shadow-blue-500/20 transition-all duration-200 disabled:shadow-none disabled:opacity-60 rounded-xl px-6 h-12 flex items-center justify-center"
         >
           {isLoading || isSubmitting ? (
             <div className="flex items-center gap-2">

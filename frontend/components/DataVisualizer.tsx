@@ -56,6 +56,19 @@ function getCategoryColumn(data: Record<string, unknown>[]): string | null {
  * Valida que los datos sean un array de objetos
  */
 function isValidData(data: unknown): data is Record<string, unknown>[] {
+  // Si es string, intentar parsearlo como JSON
+  if (typeof data === 'string') {
+    try {
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'object' && parsed[0] !== null) {
+        return true;
+      }
+    } catch {
+      // No es JSON válido o no es un array
+    }
+    return false;
+  }
+
   return (
     Array.isArray(data) &&
     data.length > 0 &&
@@ -77,6 +90,10 @@ function BarChartRenderer({
   const categoryColumn = getCategoryColumn(data);
   const numericColumns = getNumericColumns(data);
 
+  console.log('[BarChartRenderer] categoryColumn:', categoryColumn);
+  console.log('[BarChartRenderer] numericColumns:', numericColumns);
+  console.log('[BarChartRenderer] data:', data);
+
   if (!categoryColumn || numericColumns.length === 0) {
     return (
       <div className="flex items-center justify-center h-64 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
@@ -90,7 +107,10 @@ function BarChartRenderer({
     );
   }
 
-  const mainColumn = numericColumns[0];
+  // Priorizar columnas más útiles: points, assists, rebounds, pir
+  // En lugar de usar la primera columna numérica (que podría ser 'rank' o 'player_id')
+  const priorityColumns = ['points', 'assists', 'rebounds', 'pir'];
+  const mainColumn = priorityColumns.find(col => numericColumns.includes(col)) || numericColumns[0];
   const colors = [
     '#3b82f6',
     '#ef4444',
@@ -100,6 +120,9 @@ function BarChartRenderer({
     '#ec4899',
     '#14b8a6',
   ];
+
+  console.log('[BarChartRenderer] mainColumn:', mainColumn);
+  console.log('[BarChartRenderer] Dibujando gráfico con', data.length, 'items');
 
   return (
     <div className="w-full h-full">
@@ -224,6 +247,31 @@ function LineChartRenderer({
 /**
  * Renderiza una DataTable con diseño moderno y profesional
  */
+/**
+ * Mapeo de nombres de columnas a nombres legibles
+ */
+const columnLabels: Record<string, string> = {
+  rank: 'Ranking',
+  player_id: 'ID',
+  player_name: 'Nombre',
+  season: 'Temporada',
+  points: 'Puntos',
+  assists: 'Asistencias',
+  rebounds: 'Rebotes',
+  pir: 'PIR',
+  games_played: 'Partidos',
+  steals: 'Robos',
+  blocks: 'Tapones',
+  turnovers: 'Pérdidas',
+  fouls_committed: 'Faltas Cometidas',
+  fouls_drawn: 'Faltas a Favor',
+};
+
+/**
+ * Columnas que se deben ocultar por defecto en contexto de stats de jugadores
+ */
+const hiddenColumns = new Set(['player_id', 'season']);
+
 function DataTableRenderer({
   data,
   title,
@@ -242,7 +290,9 @@ function DataTableRenderer({
     );
   }
 
-  const columns = Object.keys(data[0]);
+  // Filtrar columnas: mostrar solo las que no están en hiddenColumns
+  const allColumns = Object.keys(data[0]);
+  const columns = allColumns.filter(col => !hiddenColumns.has(col));
   
   // Detectar si hay columnas numéricas para formateo especial
   const numericColumns = columns.filter(col => 
@@ -268,12 +318,16 @@ function DataTableRenderer({
     return JSON.stringify(value);
   };
 
+  const getColumnLabel = (colName: string): string => {
+    return columnLabels[colName] || colName;
+  };
+
   return (
     <div className="w-full">
       {title && <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-slate-100">{title}</h3>}
       
       {/* Contenedor responsivo */}
-      <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div className="overflow-x-auto rounded-xl shadow-sm">
         <table className="w-full">
           {/* Header */}
           <thead>
@@ -283,7 +337,7 @@ function DataTableRenderer({
                   key={col}
                   className="px-5 py-3 text-left font-semibold text-slate-700 dark:text-slate-300 text-sm tracking-wide"
                 >
-                  {col}
+                  {getColumnLabel(col)}
                 </th>
               ))}
             </tr>
@@ -312,12 +366,7 @@ function DataTableRenderer({
                         isNumeric ? 'text-right font-semibold text-blue-700 dark:text-blue-300' : ''
                       }`}
                     >
-                      <div className="flex items-center gap-2">
-                        {isNumeric && (
-                          <div className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
-                        )}
-                        <span>{formattedValue}</span>
-                      </div>
+                      <span>{formattedValue}</span>
                     </td>
                   );
                 })}
@@ -326,11 +375,6 @@ function DataTableRenderer({
           </tbody>
         </table>
       </div>
-      
-      {/* Info de registros */}
-      <p className="text-xs text-slate-500 dark:text-slate-500 mt-3 font-light">
-        {data.length} {data.length === 1 ? 'registro' : 'registros'}
-      </p>
     </div>
   );
 }
@@ -344,8 +388,20 @@ export function DataVisualizer({
   visualization = 'table',
   title,
 }: DataVisualizerProps) {
-  // Validar datos
+  // Validar y parsear datos si es necesario
   const validData = useMemo(() => {
+    if (!data) return null;
+    
+    // Si es string JSON, intentar parsearlo
+    if (typeof data === 'string') {
+      try {
+        const parsed = JSON.parse(data);
+        return isValidData(parsed) ? parsed : null;
+      } catch {
+        return null;
+      }
+    }
+    
     return isValidData(data) ? data : null;
   }, [data]);
 
@@ -365,18 +421,14 @@ export function DataVisualizer({
     );
   }
 
+  // Forzar tabla siempre por ahora para debug
+  console.log('[DataVisualizer] Visualización solicitada:', visualization);
+  console.log('[DataVisualizer] Usando tabla para debug');
+
   return (
-    <Card className="p-4 md:p-6 w-full overflow-x-auto">
-      {visualization === 'bar' && (
-        <BarChartRenderer data={validData} title={title} />
-      )}
-      {visualization === 'line' && (
-        <LineChartRenderer data={validData} title={title} />
-      )}
-      {visualization === 'table' && (
-        <DataTableRenderer data={validData} title={title} />
-      )}
-    </Card>
+    <div className="w-full overflow-x-auto">
+      <DataTableRenderer data={validData} title={title} />
+    </div>
   );
 }
 

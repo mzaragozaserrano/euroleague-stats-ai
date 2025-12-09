@@ -23,6 +23,7 @@ export interface ChatResponse {
   sql?: string;
   data?: unknown;
   visualization?: 'bar' | 'line' | 'table';
+  message?: string;
   error?: string;
 }
 
@@ -120,6 +121,13 @@ function validateResponse(data: unknown): ChatResponse {
       | 'bar'
       | 'line'
       | 'table';
+  }
+
+  if (response.message !== undefined && response.message !== null) {
+    if (typeof response.message !== 'string') {
+      throw new Error('Campo message debe ser string');
+    }
+    validated.message = response.message;
   }
 
   if (response.error !== undefined && response.error !== null) {

@@ -19,43 +19,60 @@ export function InitCheck({ onReady }: InitCheckProps) {
 
     const initialize = async () => {
       try {
-        // Primera verificación (puede iniciar ETL)
-        const initialStatus = await checkInit();
+        // PRIMERO: Verificar estado SIN ejecutar ETL (rápido)
+        const initialStatus = await getInitStatus();
         
         if (!isMounted) return;
         
-        setStatus(initialStatus);
-
-        // Si está listo, continuar
+        // Si está listo, continuar inmediatamente sin mostrar overlay
         if (initialStatus.status === 'ready') {
           setIsChecking(false);
           onReady();
           return;
         }
 
-        // Si está inicializando, hacer polling cada 2 segundos
+        // Si NO está listo, ENTONCES ejecutar ETL y mostrar overlay
         if (initialStatus.status === 'initializing') {
-          pollInterval = setInterval(async () => {
-            if (!isMounted) return;
+          setStatus(initialStatus);
+          
+          // Ahora sí llamar a checkInit() para ejecutar ETL
+          const initResult = await checkInit();
+          
+          if (!isMounted) return;
+          setStatus(initResult);
+          
+          // Si ya está listo después de ejecutar ETL
+          if (initResult.status === 'ready') {
+            setIsChecking(false);
+            onReady();
+            return;
+          }
+          
+          // Si sigue inicializando, hacer polling cada 2 segundos
+          if (initResult.status === 'initializing') {
+            pollInterval = setInterval(async () => {
+              if (!isMounted) return;
 
-            const currentStatus = await getInitStatus();
-            
-            if (!isMounted) return;
-            
-            setStatus(currentStatus);
+              const currentStatus = await getInitStatus();
+              
+              if (!isMounted) return;
+              
+              setStatus(currentStatus);
 
-            // Si está listo, detener polling y continuar
-            if (currentStatus.status === 'ready') {
-              if (pollInterval) {
-                clearInterval(pollInterval);
-                pollInterval = null;
+              // Si está listo, detener polling y continuar
+              if (currentStatus.status === 'ready') {
+                if (pollInterval) {
+                  clearInterval(pollInterval);
+                  pollInterval = null;
+                }
+                setIsChecking(false);
+                onReady();
               }
-              setIsChecking(false);
-              onReady();
-            }
-          }, 2000); // Poll cada 2 segundos
+            }, 2000); // Poll cada 2 segundos
+          }
         } else {
-          // Error o no listo
+          // Error
+          setStatus(initialStatus);
           setIsChecking(false);
         }
       } catch (error) {
@@ -82,8 +99,15 @@ export function InitCheck({ onReady }: InitCheckProps) {
     };
   }, [onReady]);
 
-  // Si está listo, no mostrar nada
-  if (status?.status === 'ready') {
+  // No mostrar overlay si:
+  // - Está listo
+  // - Aún está verificando (no hay status todavía)
+  if (status?.status === 'ready' || (!status && isChecking)) {
+    return null;
+  }
+
+  // Solo mostrar overlay si realmente está inicializando o hay error
+  if (status?.status !== 'initializing' && status?.status !== 'error') {
     return null;
   }
 

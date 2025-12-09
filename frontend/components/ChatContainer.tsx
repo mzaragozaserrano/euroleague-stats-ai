@@ -1,20 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { ChatInput } from './ChatInput';
 import { MessageList } from './MessageList';
 import { InitCheck } from './InitCheck';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { AlertCircle, Clock, Trash2 } from 'lucide-react';
+import { AlertCircle, Clock } from 'lucide-react';
 
 export interface ChatContainerProps {
   onSendMessage?: (message: string) => Promise<void>;
 }
 
 export function ChatContainer({ onSendMessage }: ChatContainerProps) {
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const messages = useChatStore((state) => state.messages);
   const isLoading = useChatStore((state) => state.isLoading);
@@ -22,7 +19,6 @@ export function ChatContainer({ onSendMessage }: ChatContainerProps) {
   const coldStartWarning = useChatStore((state) => state.coldStartWarning);
   const rateLimitWarning = useChatStore((state) => state.rateLimitWarning);
   const sendMessage = useChatStore((state) => state.sendMessage);
-  const clearHistory = useChatStore((state) => state.clearHistory);
   const dismissWarnings = useChatStore((state) => state.dismissWarnings);
 
   const handleSendMessage = async (content: string) => {
@@ -35,12 +31,6 @@ export function ChatContainer({ onSendMessage }: ChatContainerProps) {
     }
   };
 
-  const handleClearHistory = () => {
-    if (clearHistory(true)) {
-      setShowClearConfirm(false);
-    }
-  };
-
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-950 dark:to-slate-900">
       {/* Init Check Overlay */}
@@ -48,53 +38,15 @@ export function ChatContainer({ onSendMessage }: ChatContainerProps) {
         <InitCheck onReady={() => setIsInitialized(true)} />
       )}
 
-      {/* Header - Refined */}
+      {/* Header - Adjusted for mobile menu button */}
       <header className="border-b border-slate-200/50 dark:border-slate-700/50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm px-4 py-4 md:px-6 md:py-5 shadow-sm">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="flex-1">
-            <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-400 dark:to-blue-300 bg-clip-text text-transparent">
-              Euroleague AI Stats
-            </h1>
-            <p className="text-sm md:text-base text-slate-600 dark:text-slate-400 mt-1 font-light">
-              Consulta estadísticas en lenguaje natural
-            </p>
-          </div>
-          
-          {/* Clear history button */}
-          {messages.length > 0 && (
-            <div className="flex items-center gap-2 ml-4">
-              {showClearConfirm ? (
-                <div className="flex gap-2 animate-fade-in">
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={handleClearHistory}
-                    className="text-xs md:text-sm"
-                  >
-                    Confirmar
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setShowClearConfirm(false)}
-                    className="text-xs md:text-sm"
-                  >
-                    Cancelar
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setShowClearConfirm(true)}
-                  className="gap-1.5 text-slate-600 dark:text-slate-400 hover:bg-red-50/50 dark:hover:bg-red-950/20 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span className="hidden sm:inline text-xs md:text-sm">Limpiar</span>
-                </Button>
-              )}
-            </div>
-          )}
+        <div className="max-w-5xl mx-auto">
+          <h1 className="text-xl md:text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-400 dark:to-blue-300 bg-clip-text text-transparent">
+            Euroleague AI Stats
+          </h1>
+          <p className="text-xs md:text-base text-slate-600 dark:text-slate-400 mt-1 font-light">
+            Consulta estadísticas en lenguaje natural
+          </p>
         </div>
       </header>
 

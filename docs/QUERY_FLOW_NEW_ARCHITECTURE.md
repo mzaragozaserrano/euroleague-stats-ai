@@ -1,321 +1,203 @@
-# Flujo de Consultas - Nueva Arquitectura
+# Flujo de Consultas - Arquitectura Actual
 
 ## Resumen
 
-Con la nueva arquitectura, el flujo de consultas cambia significativamente:
+El sistema usa una arquitectura **ETL + Backend-Centric**:
 
-**ANTES:**
 ```
-Usuario → Backend (Text-to-SQL) → BD (stats) → Frontend (visualización)
-```
-
-**AHORA:**
-```
-Usuario → Frontend (caché check) → API Euroleague → Frontend (visualización)
-         ↓ (solo para obtener códigos)
-         Backend (Text-to-SQL) → BD (códigos)
+API Euroleague (GitHub) --[ETL 7 AM UTC]--> Backend BD (Neon)
+                                                    ↑
+Frontend (User Chat) --[Text-to-SQL]--> Backend API --[LLM/OpenRouter]
+    ↓
+localStorage persists chat history
 ```
 
-## Tipos de Consultas
+## Tipos de Consultas Soportadas
 
-### 1. Consultas de Estadísticas Directas
+### ✅ Soportadas: Estadísticas Agregadas por Temporada
 
 **Ejemplos:**
 - "Top 10 anotadores de esta temporada"
 - "Mejores reboteadores del Real Madrid"
-- "5 jugadores con más asistencias"
+- "Máximo asistente"
 
 **Flujo:**
-1. Frontend detecta que es una consulta de stats
-2. Verifica caché local (`PlayerStatsCache.getSeasonStats('E2025')`)
-3. Si no existe en caché:
-   - Llama a `EuroleagueApi.getPlayerStats('E2025')`
-   - API Euroleague retorna stats reales
-   - Se guardan en caché
-4. Frontend filtra/ordena datos según la consulta
-5. Renderiza visualización (BarChart, LineChart, Table)
+1. Frontend envía query al backend: `POST /api/chat`
+2. Backend detecta que es consulta de stats
+3. Backend extrae parámetros (temporada, estadística, top N, equipo)
+4. Backend ejecuta: `SELECT ... FROM player_season_stats WHERE season = 'E2025' ORDER BY points DESC LIMIT 10`
+5. Retorna datos + visualización (bar/line/table)
 
-**Implementación Frontend:**
-
-```typescript
-// En ChatContainer.tsx o nuevo componente QueryHandler.tsx
-async function handleStatsQuery(query: string) {
-  // 1. Detectar tipo de consulta
-  const queryType = detectQueryType(query); // "top_scorers", "rebounds", etc.
-  
-  // 2. Extraer parámetros
-  const params = extractParams(query); // { seasonCode: "E2025", stat: "points", topN: 10 }
-  
-  // 3. Obtener datos (caché → API)
-  const stats = await EuroleagueApi.getTopPlayers(
-    params.seasonCode,
-    params.stat,
-    params.topN,
-    params.teamCode
-  );
-  
-  // 4. Renderizar
-  return {
-    data: stats,
-    visualization: "bar",
-    sql: null, // No hay SQL en este flujo
-  };
-}
-```
-
-### 2. Consultas de Búsqueda de Jugadores
-
-**Ejemplos:**
-- "Puntos de Larkin"
-- "Estadísticas de Shane Larkin"
-- "Comparar Larkin vs Micic"
-
-**Flujo:**
-1. Frontend necesita identificar al jugador
-2. **Opción A (Recomendada):** Buscar directamente en caché
-   ```typescript
-   const stats = await EuroleagueApi.getPlayerStats('E2025');
-   const larkin = stats.find(p => p.playerName.includes('Larkin'));
-   ```
-3. **Opción B:** Llamar al backend para obtener `player_code`
-   ```typescript
-   const response = await sendChatMessage("Código de Larkin", []);
-   // Backend retorna: { player_code: "006590", name: "Shane Larkin" }
-   const stats = await EuroleagueApi.searchPlayer('E2025', 'Larkin');
-   ```
-4. Renderizar stats del jugador
-
-**Implementación Backend (si se usa Opción B):**
-
+**Implementación Backend:**
 ```python
 # En text_to_sql.py
-def _is_player_lookup_query(query: str) -> bool:
-    """Detecta si la consulta busca información de un jugador específico."""
-    keywords = ["puntos de", "estadísticas de", "stats de", "información de"]
-    return any(keyword in query.lower() for keyword in keywords)
-
-async def generate_sql(self, query: str, schema_context: str, history: List):
-    if self._is_player_lookup_query(query):
-        # Extraer nombre del jugador
-        player_name = extract_player_name(query)  # "Larkin"
-        
-        # Generar SQL para obtener player_code
-        sql = f"""
-        SELECT player_code, name, position, team_id
-        FROM players
-        WHERE name ILIKE '%{player_name}%'
-        LIMIT 5
-        """
-        
-        return sql, "table", None, None
+if self._requires_player_stats(query):
+    params = await self._extract_stats_params(query)
+    results = await self._get_player_stats_from_db(
+        seasoncode=params["seasoncode"],
+        stat=params["stat"],
+        top_n=params["top_n"],
+        team_code=params.get("team_code")
+    )
+    return None, "bar", None, results  # Retornar datos directos
 ```
 
-### 3. Consultas de Equipos
+### ❌ NO Soportadas: Datos a Nivel de Partido
+
+**Ejemplos (retornan error):**
+- "Partidos de Larkin con más de 10 puntos"
+- "Box score del partido Real Madrid vs Barcelona"
+- "Estadísticas de Larkin en cada partido"
+- "¿Cuántos puntos anotó Larkin contra el Milan?"
+
+**Razón:** La tabla `player_stats_games` aún no está poblada en la BD.
+
+**Comportamiento:**
+1. Backend detecta keyword: "partidos de", "en el partido", "por cada partido"
+2. Backend retorna error informativo:
+   ```json
+   {
+     "error": "⚠️ Esta consulta requiere datos detallados por partido que aún no están disponibles...",
+     "data": null,
+     "sql": null
+   }
+   ```
+3. Frontend muestra el error al usuario
+
+**Implementación Backend:**
+```python
+# En text_to_sql.py
+def _is_games_query_unavailable(query: str) -> bool:
+    query_lower = query.lower()
+    games_keywords = [
+        "partidos de", "partidos en", "en que partid", 
+        "en el partido", "por partido", "por cada partido",
+        # ... más keywords
+    ]
+    return any(keyword in query_lower for keyword in games_keywords)
+
+if self._is_games_query_unavailable(query):
+    error_msg = "⚠️ Esta consulta requiere datos detallados por partido..."
+    return None, None, error_msg, None
+```
+
+### ✅ Soportadas: Consultas Generales de Metadatos
 
 **Ejemplos:**
+- "¿Cuántos equipos hay?"
 - "Jugadores del Real Madrid"
-- "Roster del Barcelona"
+- "¿Qué posición juega Larkin?"
+- "Lista de todos los equipos"
 
 **Flujo:**
-1. Frontend llama al backend para obtener `team_code`
-2. Backend genera SQL:
-   ```sql
-   SELECT code FROM teams WHERE name ILIKE '%Real Madrid%'
-   ```
-3. Backend retorna: `{ code: "RM" }`
-4. Frontend llama a API Euroleague con filtro:
-   ```typescript
-   const stats = await EuroleagueApi.getTopPlayers('E2025', 'points', 20, 'RM');
-   ```
-5. Renderiza roster completo
+1. Frontend envía query
+2. Backend detecta que NO es de stats
+3. Backend usa LLM para generar SQL
+4. Backend ejecuta SQL contra BD
+5. Retorna resultados
 
-## Detección de Tipo de Consulta
+## Persistencia Frontend
 
-### Frontend: Query Classifier
+### Chat History (localStorage)
 
+**Clave:** `chat-storage`
+
+**Estructura:**
 ```typescript
-// frontend/lib/queryClassifier.ts
-
-export type QueryType = 
-  | "top_players"      // Top N jugadores por estadística
-  | "player_lookup"    // Buscar jugador específico
-  | "team_roster"      // Roster de un equipo
-  | "comparison"       // Comparar jugadores
-  | "general";         // Consulta general (usar backend)
-
-export function classifyQuery(query: string): QueryType {
-  const lowerQuery = query.toLowerCase();
-  
-  // Top players
-  if (/top|mejor|máximo|anotador|reboteador|asistente/.test(lowerQuery)) {
-    return "top_players";
-  }
-  
-  // Player lookup
-  if (/puntos de|stats de|estadísticas de|información de/.test(lowerQuery)) {
-    return "player_lookup";
-  }
-  
-  // Team roster
-  if (/jugadores del|roster|plantilla/.test(lowerQuery)) {
-    return "team_roster";
-  }
-  
-  // Comparison
-  if (/comparar|vs|versus|contra/.test(lowerQuery)) {
-    return "comparison";
-  }
-  
-  return "general";
-}
-
-export function extractParams(query: string, type: QueryType): QueryParams {
-  // Extraer parámetros según el tipo de consulta
-  // Ejemplo: "Top 10 anotadores 2025" → { topN: 10, stat: "points", seasonCode: "E2025" }
-  
-  const params: QueryParams = {
-    seasonCode: "E2025", // Default
-    stat: "points",
-    topN: 10,
-  };
-  
-  // Extraer número (top N)
-  const numberMatch = query.match(/\d+/);
-  if (numberMatch) {
-    params.topN = parseInt(numberMatch[0]);
-  }
-  
-  // Extraer estadística
-  if (/rebot/i.test(query)) params.stat = "rebounds";
-  if (/asist/i.test(query)) params.stat = "assists";
-  if (/triple/i.test(query)) params.stat = "threePointsMade";
-  
-  // Extraer temporada
-  if (/2024/i.test(query)) params.seasonCode = "E2024";
-  if (/2025/i.test(query)) params.seasonCode = "E2025";
-  
-  return params;
+{
+  messages: ChatMessage[],           // Todos los mensajes (user + assistant)
+  history: ChatMessage[],            // Historial para backend
+  lastCleared: number,               // Timestamp de última limpieza
+  totalQueriesCount: number          // Contador total de queries
 }
 ```
 
-## Integración en ChatStore
+**Ciclo de vida:**
+1. Usuario escribe mensaje
+2. Frontend agrega a `messages[]` y `history[]`
+3. localStorage se actualiza automáticamente (Zustand persist)
+4. Usuario cierra tab/navegador
+5. Usuario vuelve → localStorage restaura chat automáticamente
 
-```typescript
-// frontend/stores/chatStore.ts
+**NO hay caché de stats** en el frontend. Todos los datos vienen del backend.
 
-sendMessage: async (userQuery: string) => {
-  // ... código existente ...
-  
-  try {
-    // 1. Clasificar consulta
-    const queryType = classifyQuery(userQuery);
-    
-    // 2. Manejar según tipo
-    let response: ChatResponse;
-    
-    if (queryType === "top_players") {
-      // Manejar en frontend
-      const params = extractParams(userQuery, queryType);
-      const stats = await EuroleagueApi.getTopPlayers(
-        params.seasonCode,
-        params.stat,
-        params.topN,
-        params.teamCode
-      );
-      
-      response = {
-        data: stats,
-        visualization: "bar",
-        sql: null,
-        error: null,
-      };
-    } else if (queryType === "player_lookup") {
-      // Buscar en caché
-      const playerName = extractPlayerName(userQuery);
-      const player = await EuroleagueApi.searchPlayer("E2025", playerName);
-      
-      if (!player) {
-        throw new Error(`No se encontró el jugador: ${playerName}`);
-      }
-      
-      response = {
-        data: [player],
-        visualization: "table",
-        sql: null,
-        error: null,
-      };
-    } else {
-      // Consulta general → usar backend
-      response = await sendChatMessage(userQuery, backendHistory);
-    }
-    
-    // 3. Agregar respuesta al historial
-    const assistantMessage: ChatMessage = {
-      id: `assistant-${Date.now()}`,
-      role: 'assistant',
-      content: response.error || '',
-      timestamp: Date.now(),
-      sql: response.sql,
-      data: response.data,
-      visualization: response.visualization,
-      error: response.error,
-    };
-    
-    set((state) => ({
-      messages: [...state.messages, assistantMessage],
-      history: [...state.history, assistantMessage],
-      isLoading: false,
-    }));
-  } catch (error) {
-    // ... manejo de errores ...
-  }
-},
+## Limitaciones y Próximos Pasos
+
+### Limitaciones Actuales:
+- ❌ No se pueden consultar estadísticas por partido individual
+- ❌ No se pueden hacer box scores
+- ❌ No se pueden filtrar stats por rango de fechas (solo por temporada)
+
+### Próximos Pasos (Future):
+1. Poblar tabla `player_stats_games` con ETL
+2. Implementar queries a nivel de partido
+3. Agregar análisis temporal (por jornada, por fecha)
+4. Soportar visualizaciones avanzadas (shot charts, heatmaps)
+
+## Ejemplos de Flujo Real
+
+### Ejemplo 1: Top 10 Anotadores (FUNCIONA)
+
+```
+Usuario: "Top 10 anotadores"
+  ↓
+Backend: _requires_player_stats("Top 10 anotadores") = True
+Backend: _is_games_query_unavailable("Top 10 anotadores") = False
+Backend: Extrae params: {seasoncode: "E2025", stat: "points", top_n: 10}
+Backend: SELECT * FROM player_season_stats WHERE season='E2025' ORDER BY points DESC LIMIT 10
+Backend: Retorna 10 jugadores con stats
+Frontend: Renderiza BarChart
 ```
 
-## Ventajas de este Flujo
+### Ejemplo 2: Partidos de Larkin (NO FUNCIONA)
 
-1. **Menor Latencia:** Datos en caché local (0 ms)
-2. **Menos Carga en Backend:** Solo se usa para obtener códigos
-3. **Offline-First:** Funciona sin conexión si hay caché
-4. **Escalabilidad:** No saturamos la BD con queries de stats
-5. **Simplicidad:** Frontend maneja lógica de filtrado/ordenamiento
+```
+Usuario: "Partidos de Larkin con más de 10 puntos"
+  ↓
+Backend: _requires_player_stats("Partidos de Larkin...") = True
+Backend: _is_games_query_unavailable("Partidos de Larkin...") = True
+Backend: Retorna error: "Esta consulta requiere datos detallados por partido..."
+Frontend: Muestra mensaje de error
+```
 
-## Desventajas y Mitigaciones
+### Ejemplo 3: Equipos (FUNCIONA)
 
-1. **Lógica Duplicada:** Filtrado en frontend y backend
-   - Mitigación: Centralizar lógica en `queryClassifier.ts`
+```
+Usuario: "¿Cuántos equipos hay?"
+  ↓
+Backend: _requires_player_stats("¿Cuántos equipos hay?") = False
+Backend: _is_games_query_unavailable("¿Cuántos equipos hay?") = False
+Backend: LLM genera: "SELECT COUNT(*) FROM teams"
+Backend: Ejecuta SQL
+Backend: Retorna: {count: 18}
+Frontend: Muestra resultado en tabla
+```
 
-2. **Caché Puede Estar Desactualizado:**
-   - Mitigación: Invalidación automática a las 7 AM
+## Testing
 
-3. **Sin Historial de Conversación para Stats:**
-   - Mitigación: Mantener contexto en `chatStore` para queries complejas
+Para probar que el backend detecta correctamente los tipos de queries:
 
-## Próximos Pasos
+```bash
+cd backend
+python -m pytest tests/features/chat_endpoint.feature -v
+```
 
-1. ✅ Implementar `queryClassifier.ts`
-2. ✅ Integrar en `chatStore.sendMessage()`
-3. ⏳ Actualizar `text_to_sql.py` para retornar solo códigos
-4. ⏳ Testing end-to-end con queries reales
-5. ⏳ Documentar ejemplos de queries soportadas
+Para probar la detección de queries de partidos:
 
-## Ejemplos de Queries Soportadas
+```bash
+python -c "
+from app.services.text_to_sql import TextToSQLService
+service = TextToSQLService(api_key='test')
 
-### Frontend (sin backend)
-- "Top 10 anotadores"
-- "Mejores reboteadores del Real Madrid"
-- "5 jugadores con más asistencias de esta temporada"
-- "Puntos de Larkin"
-- "Comparar Larkin vs Micic"
+queries = [
+    'Top 10 anotadores',
+    'Partidos de Larkin con más de 10 puntos',
+    'Mejores reboteadores del Real Madrid'
+]
 
-### Backend (con SQL)
-- "¿Cuántos equipos hay?"
-- "Lista de todos los equipos"
-- "Jugadores del Real Madrid" (obtener códigos)
-- "¿Qué posición juega Larkin?" (obtener metadatos)
-
-### Híbrido (frontend + backend)
-- "Puntos de los jugadores del Real Madrid esta temporada"
-  1. Backend: Obtener `team_code` de "Real Madrid" → "RM"
-  2. Frontend: `EuroleagueApi.getTopPlayers('E2025', 'points', 20, 'RM')`
-
+for q in queries:
+    requires_stats = service._requires_player_stats(q)
+    is_games = service._is_games_query_unavailable(q)
+    print(f'{q}: stats={requires_stats}, games={is_games}')
+"
+```

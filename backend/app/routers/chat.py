@@ -17,6 +17,7 @@ from app.database import get_db
 from app.config import settings
 from app.services.vectorization import VectorizationService
 from app.services.text_to_sql import TextToSQLService
+from app.services.response_generator import ResponseGeneratorService
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,7 @@ class ChatResponse(BaseModel):
     sql: Optional[str] = Field(None, description="SQL generado")
     data: Optional[Any] = Field(None, description="Datos retornados por la BD")
     visualization: Optional[str] = Field(None, description="Tipo de visualizacion")
+    message: Optional[str] = Field(None, description="Respuesta en lenguaje natural (Markdown)")
     error: Optional[str] = Field(None, description="Mensaje de error si aplica")
 
     class Config:
@@ -51,6 +53,83 @@ class ChatResponse(BaseModel):
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
+
+def _format_season_for_display(season_value: Any) -> str:
+    """
+    Convierte formato de temporada de BD (E2025, 2025, 2022) a formato de visualización (2025/2026, 2022/2023).
+    
+    Regla: Siempre mostrar temporada como YYYY/YYYY+1
+    - E2025 -> 2025/2026
+    - 2025 -> 2025/2026
+    - 2022 -> 2022/2023
+    - E2022 -> 2022/2023
+    
+    Args:
+        season_value: Valor de temporada (str "E2025", "E2022" o int 2025, 2022)
+        
+    Returns:
+        String formateado como "YYYY/YYYY+1" o el valor original si no se puede convertir
+    """
+    if season_value is None:
+        return ""
+    
+    # Convertir a string si es necesario
+    season_str = str(season_value).strip()
+    
+    # Si tiene formato "E2025" o "E2022", extraer el año
+    if season_str.startswith("E"):
+        try:
+            year = int(season_str[1:])
+            # Validar que sea un año razonable (1900-2100)
+            if 1900 <= year <= 2100:
+                return f"{year}/{year + 1}"
+        except ValueError:
+            pass
+    
+    # Si es un número puro (2025, 2022, etc.)
+    try:
+        year = int(season_str)
+        # Validar que sea un año razonable (1900-2100)
+        if 1900 <= year <= 2100:
+            return f"{year}/{year + 1}"
+    except ValueError:
+        pass
+    
+    # Si no se puede convertir, retornar original
+    return season_str
+
+
+def _format_seasons_in_data(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Formatea campos de temporada en los datos para mostrar en formato YYYY/YYYY+1.
+    
+    Busca columnas que contengan 'season' o 'temporada' (case insensitive) y las convierte.
+    Aplica a todas las columnas relacionadas con temporada, independientemente del alias usado.
+    
+    Args:
+        data: Lista de diccionarios con datos
+        
+    Returns:
+        Lista de diccionarios con temporadas formateadas (siempre en formato YYYY/YYYY+1)
+    """
+    if not data:
+        return data
+    
+    formatted_data = []
+    for row in data:
+        formatted_row = {}
+        for key, value in row.items():
+            # Buscar columnas relacionadas con temporada (case insensitive)
+            key_lower = key.lower()
+            if 'season' in key_lower or 'temporada' in key_lower:
+                # Aplicar formateo: siempre mostrar como YYYY/YYYY+1
+                formatted_row[key] = _format_season_for_display(value)
+            else:
+                formatted_row[key] = value
+        formatted_data.append(formatted_row)
+    
+    return formatted_data
+
 
 async def _get_schema_context(session: AsyncSession) -> str:
     """
@@ -72,18 +151,23 @@ async def _get_schema_context(session: AsyncSession) -> str:
             # Retornar esquema hardcodeado si no hay embeddings
             return """
 TABLES:
-- teams (id, code, name, logo_url): Equipos de Euroleague.
-- players (id, team_id, name, position): Jugadores y su equipo.
-- games (id, season, round, home_team_id, away_team_id, date, home_score, away_score): Partidos jugados. SEASON values are integers: 2023, 2024, 2025.
-- player_stats_games (id, game_id, player_id, team_id, minutes, points, rebounds_total, assists, fg3_made, pir): Estadisticas de jugador por partido.
+- teams (id, code, name, logo_url): Euroleague teams.
+- players (id, team_id, name, position): Players info.
+- games (id, season, round, home_team_id, away_team_id, date, home_score, away_score): Games played. SEASON values are INTEGERS: 2023, 2024, 2025.
+- player_stats_games (id, game_id, player_id, team_id, minutes, points, rebounds, assists, three_points_made, pir): Player stats per game (Box Score). Columns are: points, rebounds, assists, three_points_made, pir.
+- player_season_stats (id, player_id, season, games_played, points, rebounds, assists, "threePointsMade", pir): Aggregated stats per season. Season values are STRINGS like 'E2024', 'E2025'.
 
 KEY RELATIONSHIPS:
 - player_stats_games.player_id -> players.id
 - player_stats_games.game_id -> games.id
+- player_season_stats.player_id -> players.id
 - players.team_id -> teams.id
-- games.home_team_id, away_team_id -> teams.id
 
-IMPORTANT - Season values are always INTEGERS (2023, 2024, 2025), NEVER strings like 'current'.
+IMPORTANT:
+- Use 'player_season_stats' for season totals/averages. Season format is 'E2025'.
+- Use 'player_stats_games' ONLY for specific game details.
+- 'threePointsMade' in player_season_stats is quoted.
+- 'three_points_made' in player_stats_games is snake_case.
 """
         
         context = "SCHEMA METADATA FROM RAG:\n"
@@ -95,15 +179,21 @@ IMPORTANT - Season values are always INTEGERS (2023, 2024, 2025), NEVER strings 
     
     except Exception as e:
         logger.error(f"Error construyendo schema context: {e}")
+        # Hacer rollback si hay error
+        try:
+            await session.rollback()
+        except Exception as rollback_error:
+            logger.warning(f"Error haciendo rollback en schema context: {rollback_error}")
         # Retornar esquema por defecto
         return """
 TABLES:
 - teams (id, code, name, logo_url)
 - players (id, team_id, name, position)
 - games (id, season, round, home_team_id, away_team_id, date, home_score, away_score) - Season is INTEGER: 2023, 2024, 2025
-- player_stats_games (id, game_id, player_id, team_id, minutes, points, rebounds_total, assists, fg3_made, pir)
+- player_stats_games (id, game_id, player_id, team_id, minutes, points, rebounds, assists, three_points_made, pir)
+- player_season_stats (id, player_id, season, games_played, points, rebounds, assists, "threePointsMade", pir) - Season is STRING: 'E2024', 'E2025'
 
-CRITICAL: Season values are always INTEGERS, NEVER strings like 'current'."""
+CRITICAL: Use player_season_stats for season aggregates. Match column names exactly."""
 
 
 async def _execute_sql(session: AsyncSession, sql: str) -> List[Dict[str, Any]]:
@@ -120,6 +210,13 @@ async def _execute_sql(session: AsyncSession, sql: str) -> List[Dict[str, Any]]:
     Raises:
         Exception: Si la BD falla.
     """
+    # Asegurar que la sesión esté en un estado limpio antes de ejecutar
+    # Hacer rollback preventivo para limpiar cualquier transacción inválida previa
+    try:
+        await session.rollback()
+    except Exception:
+        pass  # Ignorar errores de rollback (puede que no haya transacción activa)
+    
     try:
         logger.info(f"Ejecutando SQL: {sql[:100]}...")
         result = await session.execute(text(sql))
@@ -136,6 +233,11 @@ async def _execute_sql(session: AsyncSession, sql: str) -> List[Dict[str, Any]]:
     
     except Exception as e:
         logger.error(f"Error ejecutando SQL: {type(e).__name__}: {e}")
+        # Hacer rollback para limpiar la transacción inválida
+        try:
+            await session.rollback()
+        except Exception as rollback_error:
+            logger.warning(f"Error haciendo rollback: {rollback_error}")
         raise
 
 
@@ -156,7 +258,8 @@ async def chat_endpoint(
     2. Obtener contexto de esquema (RAG)
     3. Generar SQL usando LLM
     4. Ejecutar SQL contra BD
-    5. Retornar resultados
+    5. Generar respuesta natural (Resumen)
+    6. Retornar resultados
     
     IMPORTANTE: Status siempre 200, errores en campo 'error'.
     """
@@ -195,50 +298,135 @@ async def chat_endpoint(
             logger.warning(f"Error en procesamiento: {sql_error}")
             return ChatResponse(error=sql_error)
         
-        # ====================================================================
-        # PASO 3A: Si hay datos directos (stats), retornarlos sin SQL
-        # ====================================================================
-        if direct_data is not None:
-            logger.info(f"Datos directos obtenidos (stats): {len(direct_data)} registros")
-            return ChatResponse(
-                sql=None,  # No hay SQL, se obtuvo de API
-                data=direct_data,
-                visualization=visualization or "table",
-            )
+        # Variables finales
+        final_data = []
+        final_visualization = visualization or "table"
+        final_sql = sql
         
         # ====================================================================
-        # PASO 3B: Si hay SQL, ejecutarlo contra BD
+        # PASO 3: Obtener datos (Directos o SQL)
         # ====================================================================
-        if not sql:
+        
+        if direct_data is not None:
+            # Caso A: Datos directos (stats)
+            logger.info(f"Datos directos obtenidos (stats): {len(direct_data)} registros")
+            # Formatear temporadas antes de usar
+            final_data = _format_seasons_in_data(direct_data)
+            final_sql = None  # No hay SQL visible para el usuario en este caso
+        
+        elif sql:
+            # Caso B: Ejecutar SQL
+            logger.info(f"SQL generado: {sql[:200]}...")
+            logger.info("Paso 3: Ejecutando SQL contra la BD...")
+            try:
+                raw_data = await _execute_sql(session, sql)
+                logger.info(f"Ejecución exitosa: {len(raw_data)} registros")
+                if len(raw_data) == 0:
+                    logger.warning(f"SQL ejecutado correctamente pero retornó 0 registros. SQL: {sql}")
+                else:
+                    logger.debug(f"Primera fila de datos: {raw_data[0] if raw_data else 'None'}")
+                # Formatear temporadas antes de usar
+                final_data = _format_seasons_in_data(raw_data)
+            except Exception as db_error:
+                logger.error(f"Error ejecutando SQL: {db_error}")
+                # Asegurar rollback adicional por si acaso
+                try:
+                    await session.rollback()
+                except Exception as rollback_error:
+                    logger.warning(f"Error haciendo rollback adicional: {rollback_error}")
+                return ChatResponse(
+                    sql=sql,
+                    error=f"Error ejecutando consulta: {str(db_error)[:100]}"
+                )
+        else:
             logger.error("No se pudo generar SQL ni obtener datos directos")
             return ChatResponse(error="No se pudo procesar tu consulta. Intenta ser más específico.")
-        
-        logger.info(f"SQL generado: {sql[:80]}...")
-        logger.info("Paso 3: Ejecutando SQL contra la BD...")
-        try:
-            data = await _execute_sql(session, sql)
-            logger.info(f"Ejecución exitosa: {len(data)} registros")
-        except Exception as db_error:
-            logger.error(f"Error ejecutando SQL: {db_error}")
-            return ChatResponse(
-                sql=sql,
-                error=f"Error ejecutando consulta: {str(db_error)[:100]}"
-            )
-        
+            
         # ====================================================================
-        # PASO 4: Determinar tipo de visualización
+        # PASO 4: Determinar tipo de visualización final basado en resultado real
         # ====================================================================
-        if not visualization:
-            visualization = "table"
+        if not final_visualization:
+            final_visualization = "table"
         
         # Si no hay datos, usar 'table' siempre
-        if len(data) == 0:
-            visualization = "table"
+        if len(final_data) == 0:
+            final_visualization = "table"
+        else:
+            # Corregir visualization_type basado en el resultado real
+            num_rows = len(final_data)
+            num_columns = len(final_data[0].keys()) if final_data else 0
+            
+            # Reglas estrictas para tipo de visualización:
+            # - 2+ filas → SIEMPRE 'table' (comparaciones, listas, etc.)
+            # - 1 fila con 2+ columnas → SIEMPRE 'table'
+            # - 1 fila con 1 columna → puede ser 'text' (solo valores únicos)
+            # - Gráficos (bar/line/scatter) se mantienen si fueron solicitados explícitamente
+            
+            if num_rows >= 2:
+                # Dos o más filas → SIEMPRE tabla (comparaciones de temporadas, jugadores, etc.)
+                if final_visualization == "text":
+                    final_visualization = "table"
+                    logger.info(f"Corregido a 'table': {num_rows} filas (siempre tabla para múltiples filas)")
+            elif num_rows == 1 and num_columns >= 2:
+                # Una fila con múltiples columnas → SIEMPRE tabla
+                if final_visualization == "text":
+                    final_visualization = "table"
+                    logger.info(f"Corregido a 'table': 1 fila con {num_columns} columnas (siempre tabla para múltiples columnas)")
+            elif num_rows == 1 and num_columns == 1:
+                # Una fila, una columna → puede ser 'text' (solo si no es gráfico)
+                if final_visualization not in ['bar', 'line', 'scatter']:
+                    final_visualization = "text"
+                    logger.info(f"Mantenido como 'text': 1 fila, 1 columna (valor único)")
         
-        logger.info(f"Visualización: {visualization}")
+        logger.info(f"Visualización final: {final_visualization}")
+
+        # ====================================================================
+        # PASO 5: Generar respuesta en lenguaje natural
+        # ====================================================================
+        logger.info("Paso 5: Generando respuesta natural...")
+        
+        # Si no hay datos, generar mensaje simple sin historial para evitar confusión
+        if len(final_data) == 0:
+            logger.warning("No se encontraron datos para la consulta. Generando respuesta sin historial.")
+            response_service = ResponseGeneratorService(api_key=settings.openrouter_api_key)
+            natural_response = await response_service.generate_response(
+                query=request.query,
+                data=final_data,
+                conversation_history=None,  # No pasar historial cuando no hay datos
+                sql=final_sql
+            )
+        else:
+            response_service = ResponseGeneratorService(api_key=settings.openrouter_api_key)
+            natural_response = await response_service.generate_response(
+                query=request.query,
+                data=final_data,
+                conversation_history=request.history,
+                sql=final_sql
+            )
+
+        # Si hay respuesta natural, verificar si contiene tabla antes de suprimir visualización
+        # La respuesta natural ya incluye tablas/formato cuando es necesario
+        if natural_response:
+            # Verificar si la respuesta natural contiene una tabla (marcador: "|" en markdown)
+            has_table_in_response = "|" in natural_response and "--" in natural_response
+            
+            if final_visualization == "text":
+                logger.info("Suprimiendo datos estructurados para respuesta simple (text)")
+                final_visualization = None
+            elif final_visualization == "table":
+                if has_table_in_response:
+                    logger.info("Suprimiendo tabla visualización a favor de tabla en respuesta natural")
+                    final_visualization = None
+                else:
+                    logger.warning("Respuesta natural no contiene tabla, manteniendo visualización 'table'")
+                    # Mantener la visualización si la respuesta natural no tiene tabla
+            elif final_visualization == "bar":
+                if has_table_in_response:
+                    logger.info("Suprimiendo visualización bar a favor de tabla en respuesta natural")
+                    final_visualization = None
         
         # ====================================================================
-        # PASO 5: Calcular latencia y retornar
+        # PASO 6: Retornar
         # ====================================================================
         latency_ms = (time.time() - start_time) * 1000
         logger.info(f"Chat endpoint completado en {latency_ms:.2f}ms")
@@ -247,16 +435,20 @@ async def chat_endpoint(
             logger.warning(f"Latencia alta: {latency_ms:.2f}ms")
         
         return ChatResponse(
-            sql=sql,
-            data=data,
-            visualization=visualization,
+            sql=final_sql,
+            data=final_data,
+            visualization=final_visualization,
+            message=natural_response,
         )
     
     except Exception as e:
         # Capturar cualquier error no esperado
         logger.exception(f"Error no esperado en chat endpoint: {e}")
+        # Asegurar rollback en caso de error inesperado
+        try:
+            await session.rollback()
+        except Exception as rollback_error:
+            logger.warning(f"Error haciendo rollback en error inesperado: {rollback_error}")
         return ChatResponse(
             error=f"Error interno del servidor: {str(e)[:100]}"
         )
-
-
