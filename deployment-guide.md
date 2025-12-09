@@ -20,7 +20,7 @@ Esta es la guía maestro para deployar completamente Euroleague AI Stats en Rend
 
 ## Fase 1: Base de Datos (Neon)
 
-Ver: [backend/DEPLOYMENT_RENDER.md](./backend/DEPLOYMENT_RENDER.md) - Paso 1
+Ver: [backend/deployment-render.md](./backend/deployment-render.md) - Paso 1
 
 **Tareas:**
 1. Crear proyecto en Neon
@@ -31,7 +31,7 @@ Ver: [backend/DEPLOYMENT_RENDER.md](./backend/DEPLOYMENT_RENDER.md) - Paso 1
 
 ## Fase 2: Deploy Backend
 
-Ver: [backend/DEPLOYMENT_RENDER.md](./backend/DEPLOYMENT_RENDER.md)
+Ver: [backend/deployment-render.md](./backend/deployment-render.md)
 
 **Tareas:**
 1. Conectar repositorio GitHub a Render
@@ -58,7 +58,7 @@ curl https://euroleague-ai-backend.onrender.com/health
 
 ## Fase 3: Deploy Frontend
 
-Ver: [frontend/DEPLOYMENT_RENDER.md](./frontend/DEPLOYMENT_RENDER.md)
+Ver: [frontend/deployment-render.md](./frontend/deployment-render.md)
 
 **Tareas:**
 1. Crear Web Service para frontend
@@ -248,9 +248,9 @@ Database:   Neon Console (https://console.neon.tech)
 
 ## Documentos Relacionados
 
-- [frontend/DEPLOYMENT_RENDER.md](./frontend/DEPLOYMENT_RENDER.md) - Guía detallada frontend
-- [backend/DEPLOYMENT_RENDER.md](./backend/DEPLOYMENT_RENDER.md) - Guía detallada backend
-- [RENDER_QUICKSTART.md](./RENDER_QUICKSTART.md) - Guía rápida para iniciados
+- [frontend/deployment-render.md](./frontend/deployment-render.md) - Guía detallada frontend
+- [backend/deployment-render.md](./backend/deployment-render.md) - Guía detallada backend
+- [render-quickstart.md](./render-quickstart.md) - Guía rápida para iniciados
 - [frontend/README.md](./frontend/README.md) - Setup local frontend
 - [backend/README.md](./backend/README.md) - Setup local backend
 

@@ -32,11 +32,16 @@ You are expert in Python Data Engineering and Next.js, strictly following TDD wi
 - **Git:** Follow Conventional Commits.
 
 # Documentation & SDD
-- **Context:** Always check `docs/active_context.md` before starting a task.
+- **Context:** Always check `docs/active-context.md` before starting a task.
 - **Logic:** Primary source of truth for Logic/Math/Schema is `docs/architecture.md`.
-- **UI:** Primary source of truth for Visuals/Business is `docs/project_brief.md`.
+- **UI:** Primary source of truth for Visuals/Business is `docs/project-brief.md`.
 - **Roadmap:** Check `docs/roadmap.md` for task tracking.
 - **Labels:** Before creating any issue, consult `.github/docs/labels_convention.md` to assign correct labels (task/bug/documentation + technology + fase-X). Create missing labels automatically.
+
+## File Naming Conventions for Markdown
+- **META Files (Root):** Use UPPERCASE for standard project documentation files in root (e.g., `README.md`, `LICENSE.md`, `CHANGELOG.md`, `CONTRIBUTING.md`).
+- **Content Files:** Use kebab-case (lowercase with hyphens) for all other Markdown files (e.g., `guia-instalacion.md`, `arquitectura-api.md`).
+- **Restrictions:** Never use spaces, special characters, or accents (ñ, tildes) in filenames; use ASCII equivalents.
 
 # Project Specifics & Constraints
 

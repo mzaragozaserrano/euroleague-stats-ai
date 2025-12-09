@@ -12,7 +12,7 @@ La arquitectura actual es **Backend-Centric con ETL**:
 - Frontend consulta backend vía Text-to-SQL
 - NO hay caché de stats en frontend (solo historial de chat en localStorage)
 
-Ver `docs/architecture.md` y `docs/QUERY_FLOW_NEW_ARCHITECTURE.md` para arquitectura actual.
+Ver `docs/architecture.md` y `docs/query-flow-new-architecture.md` para arquitectura actual.
 
 ---
 

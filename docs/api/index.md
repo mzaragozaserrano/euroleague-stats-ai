@@ -2,7 +2,7 @@
 
 ## Sub-modules
 
-* [euroleague_api.EuroLeagueData](EuroLeagueData/)
+* [euroleague_api.EuroLeagueData](euro-league-data/)
 * [euroleague_api.boxscore_data](boxscore_data/)
 * [euroleague_api.game_metadata](game_metadata/)
 * [euroleague_api.game_stats](game_stats/)

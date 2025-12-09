@@ -77,7 +77,7 @@ frontend/
 
 ### Render
 
-Ver [DEPLOYMENT_RENDER.md](./DEPLOYMENT_RENDER.md) para instrucciones completas de deployment en Render.
+Ver [deployment-render.md](./deployment-render.md) para instrucciones completas de deployment en Render.
 
 **Configuración rápida:**
 1. Conectar repositorio GitHub a Render

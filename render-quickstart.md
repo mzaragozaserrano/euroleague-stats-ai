@@ -75,7 +75,7 @@ Por defecto, cada push a `main` triggerará un nuevo deploy automáticamente. Pa
 
 ## Referencias
 
-- Documentación completa: [DEPLOYMENT_RENDER.md](./DEPLOYMENT_RENDER.md)
+- Documentación completa: [deployment-guide.md](./deployment-guide.md)
 - Render Docs: https://render.com/docs
 - Next.js Deployment: https://nextjs.org/docs/deployment
 
