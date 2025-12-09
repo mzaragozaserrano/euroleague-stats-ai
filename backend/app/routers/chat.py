@@ -131,25 +131,11 @@ def _format_seasons_in_data(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return formatted_data
 
 
-async def _get_schema_context(session: AsyncSession) -> str:
+def _get_default_schema_context() -> str:
     """
-    Construye el contexto de esquema para el LLM.
-    
-    Recupera descripciones de tablas y columnas de schema_embeddings.
+    Retorna esquema hardcodeado como fallback cuando RAG no está disponible.
     """
-    try:
-        result = await session.execute(
-            text("""
-                SELECT content 
-                FROM schema_embeddings 
-                LIMIT 20
-            """)
-        )
-        embeddings = result.fetchall()
-        
-        if not embeddings:
-            # Retornar esquema hardcodeado si no hay embeddings
-            return """
+    return """
 TABLES:
 - teams (id, code, name, logo_url): Euroleague teams.
 - players (id, team_id, name, position): Players info.
@@ -169,31 +155,58 @@ IMPORTANT:
 - 'threePointsMade' in player_season_stats is quoted.
 - 'three_points_made' in player_stats_games is snake_case.
 """
-        
-        context = "SCHEMA METADATA FROM RAG:\n"
-        for row in embeddings:
-            context += f"- {row[0]}\n"
-        
-        logger.info(f"Schema context construido con {len(embeddings)} embeddings")
-        return context
-    
-    except Exception as e:
-        logger.error(f"Error construyendo schema context: {e}")
-        # Hacer rollback si hay error
-        try:
-            await session.rollback()
-        except Exception as rollback_error:
-            logger.warning(f"Error haciendo rollback en schema context: {rollback_error}")
-        # Retornar esquema por defecto
-        return """
-TABLES:
-- teams (id, code, name, logo_url)
-- players (id, team_id, name, position)
-- games (id, season, round, home_team_id, away_team_id, date, home_score, away_score) - Season is INTEGER: 2023, 2024, 2025
-- player_stats_games (id, game_id, player_id, team_id, minutes, points, rebounds, assists, three_points_made, pir)
-- player_season_stats (id, player_id, season, games_played, points, rebounds, assists, "threePointsMade", pir) - Season is STRING: 'E2024', 'E2025'
 
-CRITICAL: Use player_season_stats for season aggregates. Match column names exactly."""
+
+async def _get_schema_context(session: AsyncSession, query: str) -> str:
+    """
+    Construye el contexto de esquema para el LLM usando RAG (Retrieval Augmented Generation).
+    
+    Usa búsqueda semántica por similitud para recuperar solo el esquema relevante a la consulta.
+    Si RAG falla o no está disponible, usa esquema hardcodeado como fallback.
+    
+    Args:
+        session: Sesión de base de datos.
+        query: Consulta natural del usuario (para búsqueda semántica).
+    
+    Returns:
+        Contexto de esquema relevante para el LLM.
+    """
+    # Intentar usar RAG si OpenAI API key está configurada
+    if settings.openai_api_key:
+        try:
+            vectorization_service = VectorizationService(api_key=settings.openai_api_key)
+            
+            # Recuperar esquema relevante usando búsqueda semántica
+            relevant_schema = await vectorization_service.retrieve_relevant_schema(
+                session=session,
+                query=query,
+                limit=10  # Top 10 resultados más relevantes
+            )
+            
+            if relevant_schema and len(relevant_schema) > 0:
+                # Construir contexto con los resultados más relevantes
+                context = "SCHEMA METADATA FROM RAG (Relevant to your query):\n"
+                for item in relevant_schema:
+                    similarity = item.get("similarity", 0)
+                    content = item.get("content", "")
+                    # Solo incluir si la similitud es razonable (>= 0.3)
+                    if similarity >= 0.3:
+                        context += f"- {content}\n"
+                
+                logger.info(f"Schema context construido con RAG: {len(relevant_schema)} embeddings relevantes")
+                return context
+            else:
+                logger.warning("RAG no retornó resultados, usando esquema por defecto")
+                return _get_default_schema_context()
+                
+        except Exception as e:
+            logger.warning(f"Error usando RAG, fallback a esquema por defecto: {e}")
+            # Fallback seguro: usar esquema hardcodeado
+            return _get_default_schema_context()
+    else:
+        # Si no hay OpenAI API key, usar esquema hardcodeado
+        logger.info("OPENAI_API_KEY no configurada, usando esquema por defecto")
+        return _get_default_schema_context()
 
 
 async def _execute_sql(session: AsyncSession, sql: str) -> List[Dict[str, Any]]:
@@ -278,8 +291,8 @@ async def chat_endpoint(
         # ====================================================================
         # PASO 1: Obtener contexto de esquema (RAG)
         # ====================================================================
-        logger.info("Paso 1: Recuperando contexto de esquema...")
-        schema_context = await _get_schema_context(session)
+        logger.info("Paso 1: Recuperando contexto de esquema con RAG...")
+        schema_context = await _get_schema_context(session, request.query)
         logger.info(f"Contexto de esquema obtenido ({len(schema_context)} chars)")
         
         # ====================================================================
