@@ -65,3 +65,5 @@ Feature: ETL Pipeline de Euroleague
     Then El sistema detecta "Real Madrid" → código "RM"
     And Filtra resultados por team_code = "RM"
 
+
+

@@ -51,3 +51,5 @@ CREATE INDEX IF NOT EXISTS idx_player_season_stats_player_id ON player_season_st
 CREATE INDEX IF NOT EXISTS idx_player_season_stats_season ON player_season_stats(season);
 CREATE INDEX IF NOT EXISTS idx_player_season_stats_player_season ON player_season_stats(player_id, season);
 
+
+

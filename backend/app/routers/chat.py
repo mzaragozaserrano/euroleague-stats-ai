@@ -99,6 +99,270 @@ def _format_season_for_display(season_value: Any) -> str:
     return season_str
 
 
+def _filter_stats_columns_for_simple_query(
+    data: List[Dict[str, Any]], 
+    query: str
+) -> List[Dict[str, Any]]:
+    """
+    Filtra columnas de datos para consultas simples de máximo/top N sobre una estadística específica.
+    
+    Para consultas como "máximo reboteador" o "top 4 anotadores", solo retorna:
+    - Jugador/Nombre
+    - La estadística consultada (rebotes, puntos, asistencias, etc.)
+    - Partidos (si se pregunta "cuantos X lleva")
+    - Ranking (si es top N con N > 1)
+    
+    Args:
+        data: Lista de diccionarios con datos completos
+        query: Consulta del usuario
+        
+    Returns:
+        Lista de diccionarios con solo las columnas relevantes
+    """
+    if not data:
+        return data
+    
+    query_lower = query.lower()
+    
+    # Detectar si es una consulta simple de máximo/top N sobre una estadística específica
+    is_simple_maximum_query = (
+        any(word in query_lower for word in [
+            "maximo", "máximo", "maxima", "máxima", "mejor", "top",
+            "quien es el", "quien es la", "primer", "segundo", "tercer", "cuarto",
+            "quinto", "sexto", "septimo", "octavo", "noveno", "decimo"
+        ]) and
+        not any(word in query_lower for word in ["compara", "comparar", "comparacion", "comparación", "estadisticas", "estadísticas"])
+    )
+    
+    if not is_simple_maximum_query:
+        return data
+    
+    # Detectar qué estadística se está consultando
+    stat_column = None
+    stat_name_spanish = None
+    
+    if any(word in query_lower for word in ["rebote", "rebound"]):
+        stat_column = "rebounds"
+        stat_name_spanish = "Rebotes"
+    elif any(word in query_lower for word in ["anotador", "puntos", "points", "scorer"]):
+        stat_column = "points"
+        stat_name_spanish = "Puntos"
+    elif any(word in query_lower for word in ["asistente", "asistencias", "assists"]):
+        stat_column = "assists"
+        stat_name_spanish = "Asistencias"
+    elif any(word in query_lower for word in ["pir", "eficiencia", "efficiency", "valoracion", "valoración"]):
+        stat_column = "pir"
+        stat_name_spanish = "Valoración"
+    
+    # Si no se detecta estadística específica, retornar todos los datos
+    if not stat_column:
+        return data
+    
+    # Detectar si se pregunta por partidos ("cuantos rebotes lleva", "cuantos puntos tiene")
+    include_games = any(word in query_lower for word in ["cuantos", "cuántos", "lleva", "tiene", "partidos", "games"])
+    
+    # Detectar si es top N (múltiples jugadores) para incluir ranking
+    is_top_n = any(word in query_lower for word in ["top", "primeros", "mejores", "maximos", "máximos"]) or \
+               any(word in query_lower for word in ["segundo", "tercer", "cuarto", "quinto", "sexto", "septimo", "octavo", "noveno", "decimo"])
+    
+    # Filtrar datos
+    filtered_data = []
+    for row in data:
+        filtered_row = {}
+        
+        # Siempre incluir nombre del jugador (buscar en diferentes formatos)
+        player_name = None
+        if "player_name" in row:
+            player_name = row["player_name"]
+        elif "Nombre" in row:
+            player_name = row["Nombre"]
+        elif "name" in row:
+            player_name = row["name"]
+        elif "Jugador" in row:
+            player_name = row["Jugador"]
+        
+        if player_name:
+            filtered_row["Jugador"] = player_name
+        
+        # Incluir ranking si es top N (buscar en diferentes formatos)
+        if is_top_n:
+            rank_value = None
+            if "rank" in row:
+                rank_value = row["rank"]
+            elif "Ranking" in row:
+                rank_value = row["Ranking"]
+            elif "ranking" in row:
+                rank_value = row["ranking"]
+            
+            if rank_value is not None:
+                filtered_row["Ranking"] = rank_value
+        
+        # Incluir la estadística consultada (buscar en inglés y español)
+        stat_value = None
+        if stat_column in row:
+            stat_value = row[stat_column]
+        elif stat_name_spanish in row:
+            stat_value = row[stat_name_spanish]
+        
+        if stat_value is not None:
+            filtered_row[stat_name_spanish] = stat_value
+        
+        # Incluir partidos si se pregunta por ellos
+        if include_games:
+            games_value = None
+            if "games_played" in row:
+                games_value = row["games_played"]
+            elif "Partidos" in row:
+                games_value = row["Partidos"]
+            elif "partidos" in row:
+                games_value = row["partidos"]
+            
+            if games_value is not None:
+                filtered_row["Partidos"] = games_value
+        
+        filtered_data.append(filtered_row)
+    
+    logger.info(f"Columnas filtradas para consulta simple: {list(filtered_data[0].keys()) if filtered_data else []}")
+    return filtered_data
+
+
+def _filter_comparison_columns_for_facet(
+    data: List[Dict[str, Any]], 
+    query: str
+) -> List[Dict[str, Any]]:
+    """
+    Filtra columnas para comparaciones donde se menciona una faceta específica.
+    
+    Cuando se compara un jugador con un "máximo/quinto/etc. reboteador/anotador/asistente"
+    o simplemente se compara en una faceta ("compara rebotes de X e Y"),
+    ambos jugadores deben mostrar SOLO la faceta mencionada y el nombre.
+    
+    Args:
+        data: Lista de diccionarios con datos completos
+        query: Consulta del usuario
+        
+    Returns:
+        Lista de diccionarios con columnas filtradas según corresponda
+    """
+    if not data:
+        return data
+    
+    query_lower = query.lower()
+    
+    # Detectar si es una comparación que menciona una faceta específica
+    is_comparison = any(word in query_lower for word in ["compara", "comparar", "comparacion", "comparación"])
+    if not is_comparison:
+        return data
+    
+    # Detectar qué faceta se está mencionando (reboteador, anotador, asistente)
+    stat_column = None
+    stat_name_spanish = None
+    
+    if any(word in query_lower for word in ["rebote", "rebound"]):
+        stat_column = "rebounds"
+        stat_name_spanish = "Rebotes"
+    elif any(word in query_lower for word in ["anotador", "anotadora", "puntos", "points", "scorer"]):
+        stat_column = "points"
+        stat_name_spanish = "Puntos"
+    elif any(word in query_lower for word in ["asistente", "asistencias", "assists"]):
+        stat_column = "assists"
+        stat_name_spanish = "Asistencias"
+    elif any(word in query_lower for word in ["pir", "eficiencia", "efficiency", "valoracion", "valoración"]):
+        stat_column = "pir"
+        stat_name_spanish = "Valoración"
+    
+    # Si no se detecta faceta específica, no filtrar
+    if not stat_column:
+        return data
+    
+    # Detectar si se pregunta explícitamente por partidos
+    # Si el usuario NO pregunta por partidos, NO incluirlos para mantener la respuesta limpia
+    include_games = any(word in query_lower for word in ["cuantos", "cuántos", "lleva", "tiene", "partidos", "games"])
+    
+    # Detectar si se pregunta explícitamente por ranking
+    # Si el usuario NO pregunta por ranking, NO incluirlo
+    include_ranking = any(word in query_lower for word in ["ranking", "rank", "posicion", "posición", "lugar", "puesto"])
+    
+    # Definir columnas permitidas
+    # Siempre incluir Nombre y la Estadística
+    # Ranking solo si se pregunta explícitamente
+    allowed_columns = ["Jugador", "player_name", "Nombre", "name", stat_name_spanish]
+    if include_ranking:
+        allowed_columns.extend(["Ranking", "rank"])
+    
+    # Mapeo de columnas de BD a nombre español
+    col_mapping = {
+        stat_column: stat_name_spanish,
+        "games_played": "Partidos"
+    }
+
+    logger.info(f"🔍 FILTRANDO COMPARACIÓN: {len(data)} fila(s) de entrada")
+    filtered_data = []
+    for idx, row in enumerate(data):
+        filtered_row = {}
+        
+        # CRÍTICO: Siempre incluir el nombre del jugador primero (buscar en diferentes formatos)
+        player_name = None
+        for name_col in ["Jugador", "player_name", "Nombre", "name"]:
+            if name_col in row:
+                player_name = row[name_col]
+                filtered_row["Jugador"] = player_name
+                break
+        
+        # Si no hay nombre, saltar esta fila (datos inválidos)
+        if not player_name:
+            logger.error(f"❌ ERROR: Fila {idx} sin nombre de jugador encontrada, omitiendo: {row}")
+            logger.error(f"❌ Claves disponibles en fila: {list(row.keys())}")
+            continue
+        
+        logger.debug(f"✅ Procesando jugador: {player_name}")
+        
+        # Copiar columnas permitidas que ya existan con el nombre correcto
+        for key, value in row.items():
+            # Excluir Ranking si no se pidió explícitamente
+            if key in ["Ranking", "rank"] and not include_ranking:
+                continue
+            if key in allowed_columns and key not in ["Jugador", "player_name", "Nombre", "name"]:  # Ya copiamos el nombre arriba
+                filtered_row[key] = value
+            elif key in col_mapping:
+                # Renombrar si es necesario (ej: rebounds -> Rebotes)
+                target_key = col_mapping[key]
+                # Solo agregar si es la estadística o si es partidos y se pidieron
+                if target_key == stat_name_spanish:
+                    # IMPORTANTE: Incluir incluso si es 0 o None (el usuario debe ver el valor real)
+                    filtered_row[target_key] = value
+                elif target_key == "Partidos" and include_games:
+                    filtered_row[target_key] = value
+
+        # Si por alguna razón falta la estadística con el nombre en español pero estaba en inglés
+        if stat_name_spanish not in filtered_row and stat_column in row:
+             # IMPORTANTE: Incluir incluso si es 0 o None
+             filtered_row[stat_name_spanish] = row[stat_column]
+
+        # Partidos (chequeo adicional por nombres variados)
+        if include_games and "Partidos" not in filtered_row:
+             if "Partidos" in row: filtered_row["Partidos"] = row["Partidos"]
+             elif "partidos" in row: filtered_row["Partidos"] = row["partidos"]
+             elif "games_played" in row: filtered_row["Partidos"] = row["games_played"]
+        
+        # Asegurar que siempre tengamos al menos el nombre y la estadística (incluso si es 0 o None)
+        if stat_name_spanish not in filtered_row:
+            # Si no encontramos la estadística, usar 0 como fallback para que el usuario vea que el jugador existe pero no tiene datos
+            filtered_row[stat_name_spanish] = 0
+            logger.warning(f"Estadística '{stat_name_spanish}' no encontrada para jugador '{player_name}', usando 0 como fallback")
+
+        filtered_data.append(filtered_row)
+    
+    logger.info(f"✅ FILTRADO COMPLETADO: {len(filtered_data)} fila(s) de salida (de {len(data)} entrada)")
+    logger.info(f"✅ Columnas filtradas: {list(filtered_data[0].keys()) if filtered_data else []}")
+    logger.info(f"✅ Jugadores en datos filtrados: {[row.get('Jugador') for row in filtered_data]}")
+    
+    if len(filtered_data) < len(data):
+        logger.warning(f"⚠ ADVERTENCIA: Se filtraron {len(data) - len(filtered_data)} fila(s) durante el proceso")
+    
+    return filtered_data
+
+
 def _format_seasons_in_data(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     Formatea campos de temporada en los datos para mostrar en formato YYYY/YYYY+1.
@@ -138,7 +402,7 @@ def _get_default_schema_context() -> str:
     return """
 TABLES:
 - teams (id, code, name, logo_url): Euroleague teams.
-- players (id, team_id, name, position): Players info.
+- players (id, team_id, name, position): Players info. IMPORTANT: Names are often stored as 'LASTNAME, FIRSTNAME' (e.g. 'CAMPAZZO, FACUNDO'). Use ILIKE with partial matches (e.g. ILIKE '%Campazzo%') or split parts.
 - games (id, season, round, home_team_id, away_team_id, date, home_score, away_score): Games played. SEASON values are INTEGERS: 2023, 2024, 2025.
 - player_stats_games (id, game_id, player_id, team_id, minutes, points, rebounds, assists, three_points_made, pir): Player stats per game (Box Score). Columns are: points, rebounds, assists, three_points_made, pir.
 - player_season_stats (id, player_id, season, games_played, points, rebounds, assists, "threePointsMade", pir): Aggregated stats per season. Season values are STRINGS like 'E2024', 'E2025'.
@@ -148,12 +412,14 @@ KEY RELATIONSHIPS:
 - player_stats_games.game_id -> games.id
 - player_season_stats.player_id -> players.id
 - players.team_id -> teams.id
+- players.team_id -> teams.id
 
 IMPORTANT:
 - Use 'player_season_stats' for season totals/averages. Season format is 'E2025'.
 - Use 'player_stats_games' ONLY for specific game details.
 - 'threePointsMade' in player_season_stats is quoted.
 - 'three_points_made' in player_stats_games is snake_case.
+- When searching for players by name, ALWAYS use ILIKE '%Name%' to handle 'Lastname, Firstname' format.
 """
 
 
@@ -336,6 +602,7 @@ async def chat_endpoint(
             logger.info(f"Datos directos obtenidos (stats): {len(direct_data)} registros")
             # Formatear temporadas antes de usar
             final_data = _format_seasons_in_data(direct_data)
+            
             final_sql = None  # No hay SQL visible para el usuario en este caso
         
         elif sql:
@@ -349,6 +616,20 @@ async def chat_endpoint(
                     logger.warning(f"SQL ejecutado correctamente pero retornó 0 registros. SQL: {sql}")
                 else:
                     logger.debug(f"Primera fila de datos: {raw_data[0] if raw_data else 'None'}")
+                    # Validar que comparaciones tengan ambos jugadores
+                    query_lower = request.query.lower()
+                    is_comparison = any(word in query_lower for word in ["compara", "comparar", "comparacion", "comparación"])
+                    if is_comparison:
+                        logger.info(f"🔍 COMPARACIÓN DETECTADA: {len(raw_data)} fila(s) retornadas")
+                        logger.info(f"🔍 Nombres en datos: {[row.get('Jugador') or row.get('player_name') or row.get('Nombre') or row.get('name') or 'SIN_NOMBRE' for row in raw_data]}")
+                        if len(raw_data) < 2:
+                            logger.error(f"❌ ERROR CRÍTICO: Comparación debería retornar 2 filas pero solo retornó {len(raw_data)}. SQL completo: {sql}")
+                            logger.error(f"❌ Datos retornados: {raw_data}")
+                            # Retornar error al usuario en lugar de continuar con datos incompletos
+                            return ChatResponse(
+                                sql=sql,
+                                error=f"Error en la consulta: Solo se encontró {len(raw_data)} jugador(es) cuando se esperaban 2. El SQL generado puede no estar recuperando correctamente ambos jugadores. Por favor, intenta reformular la consulta."
+                            )
                 # Formatear temporadas antes de usar
                 final_data = _format_seasons_in_data(raw_data)
             except Exception as db_error:
@@ -365,6 +646,26 @@ async def chat_endpoint(
         else:
             logger.error("No se pudo generar SQL ni obtener datos directos")
             return ChatResponse(error="No se pudo procesar tu consulta. Intenta ser más específico.")
+
+        # ====================================================================
+        # PASO 3.5: Filtrar y Refinar Datos (Común para Directo y SQL)
+        # ====================================================================
+        if final_data and len(final_data) > 0:
+            # 1. Filtrar temporada si aplica
+            temp_service = ResponseGeneratorService(api_key=settings.openrouter_api_key)
+            final_data = temp_service._filter_season_column_if_not_needed(final_data, request.query)
+            
+            # 2. Filtrar columnas según tipo de consulta
+            query_lower = request.query.lower()
+            is_comparison = any(word in query_lower for word in ["compara", "comparar", "comparacion", "comparación"])
+            
+            if is_comparison:
+                 # Aplicar filtrado de comparaciones con faceta específica
+                 # Esto limpiará columnas irrelevantes (Puntos, Rebotes, etc.) si se pregunta por una faceta específica
+                 final_data = _filter_comparison_columns_for_facet(final_data, request.query)
+            else:
+                 # Filtrar columnas para consultas simples
+                 final_data = _filter_stats_columns_for_simple_query(final_data, request.query)
             
         # ====================================================================
         # PASO 4: Determinar tipo de visualización final basado en resultado real
@@ -376,38 +677,61 @@ async def chat_endpoint(
         if len(final_data) == 0:
             final_visualization = "table"
         else:
-            # ====================================================================
-            # PASO 4.1: Filtrar columna de temporada ANTES de determinar visualización
-            # ====================================================================
-            # Filtrar temporada de final_data si solo hay una y la consulta no la menciona
-            temp_service = ResponseGeneratorService(api_key=settings.openrouter_api_key)
-            final_data_filtered = temp_service._filter_season_column_if_not_needed(final_data, request.query)
+            # Ya no necesitamos filtrar temporada ni columnas aquí porque se hizo en el paso 3.5
             
-            # Si se filtró alguna columna, usar los datos filtrados para todo
-            if len(final_data) > 0 and len(final_data_filtered) > 0:
-                original_cols = len(final_data[0].keys())
-                filtered_cols = len(final_data_filtered[0].keys())
-                if filtered_cols < original_cols:
-                    logger.info(f"Columna de temporada filtrada ({original_cols} → {filtered_cols} columnas)")
-                    final_data = final_data_filtered
-            
-            # Corregir visualization_type basado en el resultado real (usando datos filtrados)
+            # Corregir visualization_type basado en el resultado real
             num_rows = len(final_data)
             num_columns = len(final_data[0].keys()) if final_data else 0
             
+            logger.info(f"Evaluando visualización: {num_rows} fila(s), {num_columns} columna(s)")
+            
+            # Detectar si es una consulta simple de "máximo X" (singular, no plural)
+            query_lower = request.query.lower()
+            is_simple_maximum_query = (
+                (num_rows == 1) and  # Solo un resultado
+                any(word in query_lower for word in [
+                    "quien es el maximo", "quien es el máximo", "quien es la maxima", "quien es la máxima",
+                    "maximo reboteador", "máximo reboteador", "maximo anotador", "máximo anotador",
+                    "maximo asistente", "máximo asistente", "maxima anotadora", "máxima anotadora",
+                    "mejor reboteador", "mejor anotador", "mejor asistente"
+                ]) and
+                not any(word in query_lower for word in ["compara", "comparar", "comparacion", "comparación"])
+            )
+            
+            # Detectar si es una comparación
+            is_comparison_query = any(word in query_lower for word in ["compara", "comparar", "comparacion", "comparación"])
+            
             # Reglas para tipo de visualización:
-            # - 1 fila y ≤3 columnas → 'text' (respuesta simple)
-            # - 2 filas y ≤2 columnas → 'text' (comparación simple)
+            # - Consultas simples de "máximo X" (1 fila) → 'text' (respuesta simple, sin tabla)
+            # - 1 fila y ≤3 columnas → 'text' (respuesta simple, sin tabla)
+            # - Comparaciones con 2 filas y ≤2 columnas → 'text' (comparación simple, sin tabla)
+            # - Comparaciones con 1 fila y ≤2 columnas → 'text' también (aunque debería haber 2, forzar texto)
             # - Resto → 'table' o gráfico según corresponda
             
+            # Para comparaciones: si tiene ≤2 columnas, siempre texto (incluso si solo hay 1 fila por error SQL)
+            is_comparison_simple = is_comparison_query and num_columns <= 2
+            
             is_simple_response = (
+                is_simple_maximum_query or  # Consulta de máximo singular
                 (num_rows == 1 and num_columns <= 3) or
-                (num_rows == 2 and num_columns <= 2)
+                is_comparison_simple  # Comparación simple: ≤2 columnas (2 filas idealmente, pero aceptar 1 si hay error)
             )
             
             if is_simple_response:
                 # Respuesta simple: usar 'text' (no mostrar tabla de datos)
-                if final_visualization not in ['bar', 'line', 'scatter']:
+                # Si es una consulta explícita de máximo con 1 resultado, FORZAR texto
+                # para evitar gráficos de una sola barra o tablas innecesarias
+                if is_simple_maximum_query:
+                    final_visualization = "text"
+                    logger.info(f"FORZADO a 'text': consulta simple de máximo ({num_rows} fila, {num_columns} columnas)")
+                # Para comparaciones simples (≤2 columnas), FORZAR texto siempre
+                elif is_comparison_simple:
+                    final_visualization = "text"
+                    if num_rows < 2:
+                        logger.warning(f"⚠ ADVERTENCIA: Comparación con solo {num_rows} fila(s) pero forzando texto (debería haber 2)")
+                    logger.info(f"FORZADO a 'text': comparación simple ({num_rows} fila(s), {num_columns} columna(s))")
+                # Para otros casos simples, usar 'text' solo si no es un gráfico explícito
+                elif final_visualization not in ['bar', 'line', 'scatter']:
                     final_visualization = "text"
                     logger.info(f"Corregido a 'text': {num_rows} fila(s), {num_columns} columna(s) (respuesta simple)")
             elif num_rows >= 3:
@@ -458,9 +782,21 @@ async def chat_endpoint(
             # Verificar si la respuesta natural contiene una tabla (marcador: "|" en markdown)
             has_table_in_response = "|" in natural_response and "--" in natural_response
             
-            if final_visualization == "text":
+            # Detectar si es el mensaje de fallback de error (nuevo o antiguo)
+            is_fallback_error = "⚠️ Hubo un problema" in natural_response or "Aquí tienes los resultados encontrados en la base de datos" in natural_response
+
+            if is_fallback_error:
+                logger.warning("Mensaje de fallback detectado: Forzando visualización de tabla para mostrar datos")
+                # Forzar tabla para que el usuario vea los datos crudos
+                final_visualization = "table"
+                # IMPORTANTE: No borrar final_data para que se muestren
+                
+            elif final_visualization == "text":
                 logger.info("Suprimiendo datos estructurados para respuesta simple (text)")
                 final_visualization = None
+                # CRÍTICO: También eliminar los datos para que el frontend no muestre tabla visual
+                final_data = []
+                logger.info("Datos eliminados para evitar tabla visual en respuesta simple")
                 # CAPA ADICIONAL DE SEGURIDAD: Eliminar cualquier tabla del markdown si es respuesta simple
                 if has_table_in_response:
                     logger.warning("Respuesta simple contiene tabla en markdown. Eliminando tabla...")

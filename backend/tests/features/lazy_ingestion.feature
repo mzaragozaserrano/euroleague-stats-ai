@@ -9,3 +9,5 @@ Feature: Lazy Data Ingestion
     Then the system should trigger the data ingestion for season "E2024"
     And the system should return a valid response with stats
 
+
+

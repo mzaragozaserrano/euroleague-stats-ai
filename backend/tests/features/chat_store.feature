@@ -73,3 +73,5 @@ Feature: Chat Store Management
     And the message should have SQL query data
     And the message should have visualization type "bar"
 
+
+

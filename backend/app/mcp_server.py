@@ -57,6 +57,7 @@ logging.getLogger("httpcore").setLevel(logging.ERROR)
 try:
     from app.config import settings
     from app.services.text_to_sql import TextToSQLService
+    from app.services.vectorization import VectorizationService
     from sqlalchemy import text
     from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
     from sqlalchemy.orm import sessionmaker
@@ -191,7 +192,7 @@ class TextToSQLMCPServer:
             async with _mcp_session_maker() as session:
                 # Obtener contexto de esquema
                 logger.info("Obteniendo contexto de esquema...")
-                schema_context = await self._get_schema_context(session)
+                schema_context = await self._get_schema_context(session, query)
 
                 # Generar SQL
                 logger.info("Generando SQL con LLM...")
@@ -199,7 +200,8 @@ class TextToSQLMCPServer:
                     api_key=settings.openrouter_api_key
                 )
 
-                sql, visualization, sql_error = (
+                # CORRECCIÓN: generate_sql_with_fallback retorna 4 valores, no 3
+                sql, visualization, sql_error, direct_data = (
                     await text_to_sql_service.generate_sql_with_fallback(
                         query=query,
                         schema_context=schema_context,
@@ -211,6 +213,19 @@ class TextToSQLMCPServer:
                     logger.warning(f"Error en generación de SQL: {sql_error}")
                     return [TextContent(type="text", text=json.dumps({"error": sql_error}, ensure_ascii=False))]
 
+                # CASO 1: Datos directos (stats de jugadores sin SQL)
+                if direct_data is not None:
+                    logger.info(f"Datos directos obtenidos: {len(direct_data)} registros")
+                    response_data = {
+                        "sql": None,
+                        "data": direct_data,
+                        "visualization": visualization or "table",
+                        "row_count": len(direct_data),
+                    }
+                    response_text = json.dumps(response_data, indent=2, default=str, ensure_ascii=False)
+                    return [TextContent(type="text", text=response_text)]
+
+                # CASO 2: SQL generado
                 if not sql:
                     logger.error("No se pudo generar SQL válido")
                     return [TextContent(type="text", text=json.dumps({"error": "No se pudo generar SQL válido"}, ensure_ascii=False))]
@@ -249,31 +264,63 @@ class TextToSQLMCPServer:
             logger.exception(f"Error no esperado en MCP: {e}")
             return [TextContent(type="text", text=json.dumps({"error": f"Error interno: {str(e)[:100]}"}, ensure_ascii=False))]
 
-    async def _get_schema_context(self, session) -> str:
-        """Obtiene el contexto de esquema para el LLM."""
-        try:
-            result = await session.execute(
-                text("""
-                    SELECT content 
-                    FROM schema_embeddings 
-                    LIMIT 20
-                """)
-            )
-            embeddings = result.fetchall()
-
-            if not embeddings:
-                logger.warning("No hay embeddings en BD, usando esquema por defecto")
+    async def _get_schema_context(self, session, query: str) -> str:
+        """
+        Obtiene el contexto de esquema para el LLM usando RAG (Retrieval Augmented Generation).
+        
+        Usa búsqueda semántica por similitud para recuperar solo el esquema relevante a la consulta.
+        Si RAG falla o no está disponible, usa esquema hardcodeado como fallback.
+        
+        Args:
+            session: Sesión de base de datos.
+            query: Consulta natural del usuario (para búsqueda semántica).
+        
+        Returns:
+            Contexto de esquema como string.
+        """
+        # Intentar usar RAG si OpenAI API key está configurada
+        if settings.openai_api_key:
+            try:
+                vectorization_service = VectorizationService(api_key=settings.openai_api_key)
+                
+                # Recuperar esquema relevante usando búsqueda semántica
+                relevant_schema = await vectorization_service.retrieve_relevant_schema(
+                    session=session,
+                    query=query,
+                    limit=10  # Top 10 resultados más relevantes
+                )
+                
+                if relevant_schema and len(relevant_schema) > 0:
+                    # Filtrar por similitud y construir contexto
+                    filtered_items = [
+                        item for item in relevant_schema 
+                        if item.get("similarity", 0) >= 0.3
+                    ]
+                    
+                    if filtered_items and len(filtered_items) > 0:
+                        # Construir contexto con los resultados más relevantes
+                        context = "SCHEMA METADATA FROM RAG (Relevant to your query):\n"
+                        for item in filtered_items:
+                            content = item.get("content", "")
+                            context += f"- {content}\n"
+                        
+                        logger.info(f"✓ RAG ACTIVO: Schema context construido con {len(filtered_items)} embeddings relevantes (de {len(relevant_schema)} encontrados) para query: '{query[:50]}...'")
+                        return context
+                    else:
+                        logger.warning(f"⚠ RAG encontró {len(relevant_schema)} resultados pero ninguno con similitud >= 0.3, usando esquema por defecto")
+                        return self._default_schema_context()
+                else:
+                    logger.warning("⚠ RAG no retornó resultados (tabla vacía o no existe), usando esquema por defecto")
+                    return self._default_schema_context()
+                    
+            except Exception as e:
+                # Capturar cualquier error (tabla no existe, error de conexión, etc.)
+                logger.warning(f"⚠ Error usando RAG (tabla puede no existir o no tener embeddings), fallback a esquema por defecto: {type(e).__name__}: {str(e)[:100]}")
+                # Fallback seguro: usar esquema hardcodeado
                 return self._default_schema_context()
-
-            context = "SCHEMA METADATA FROM RAG:\n"
-            for row in embeddings:
-                context += f"- {row[0]}\n"
-
-            logger.info(f"Contexto de esquema construido con {len(embeddings)} embeddings")
-            return context
-
-        except Exception as e:
-            logger.error(f"Error construyendo contexto de esquema: {e}")
+        else:
+            # Si no hay OpenAI API key, usar esquema hardcodeado
+            logger.info("ℹ OPENAI_API_KEY no configurada, usando esquema por defecto (RAG desactivado)")
             return self._default_schema_context()
 
     @staticmethod
@@ -281,18 +328,23 @@ class TextToSQLMCPServer:
         """Retorna el esquema por defecto cuando no hay embeddings."""
         return """
 TABLES:
-- teams (id, code, name, logo_url): Equipos de Euroleague.
-- players (id, team_id, name, position): Jugadores y su equipo.
-- games (id, season, round, home_team_id, away_team_id, date, home_score, away_score): Partidos jugados. SEASON values are integers: 2023, 2024, 2025.
-- player_stats_games (id, game_id, player_id, team_id, minutes, points, rebounds_total, assists, fg3_made, pir): Estadisticas de jugador por partido.
+- teams (id, code, name, logo_url): Euroleague teams.
+- players (id, team_id, name, position): Players info.
+- games (id, season, round, home_team_id, away_team_id, date, home_score, away_score): Games played. SEASON values are INTEGERS: 2023, 2024, 2025.
+- player_stats_games (id, game_id, player_id, team_id, minutes, points, rebounds, assists, three_points_made, pir): Player stats per game (Box Score). Columns are: points, rebounds, assists, three_points_made, pir.
+- player_season_stats (id, player_id, season, games_played, points, rebounds, assists, "threePointsMade", pir): Aggregated stats per season. Season values are STRINGS like 'E2024', 'E2025'.
 
 KEY RELATIONSHIPS:
 - player_stats_games.player_id -> players.id
 - player_stats_games.game_id -> games.id
+- player_season_stats.player_id -> players.id
 - players.team_id -> teams.id
-- games.home_team_id, away_team_id -> teams.id
 
-IMPORTANT - Season values are always INTEGERS (2023, 2024, 2025), NEVER strings like 'current'."""
+IMPORTANT:
+- Use 'player_season_stats' for season totals/averages. Season format is 'E2025'.
+- Use 'player_stats_games' ONLY for specific game details.
+- 'threePointsMade' in player_season_stats is quoted.
+- 'three_points_made' in player_stats_games is snake_case."""
 
     async def run(self):
         """Inicia el servidor MCP."""
