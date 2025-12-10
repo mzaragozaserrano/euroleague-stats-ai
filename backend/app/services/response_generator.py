@@ -150,6 +150,135 @@ class ResponseGeneratorService:
         
         return redundant_columns
 
+    @staticmethod
+    def _is_numeric_value(value: Any) -> bool:
+        """Devuelve True si el valor puede convertirse a float."""
+        try:
+            float(value)
+            return True
+        except (TypeError, ValueError):
+            return False
+
+    def _detect_player_column(self, data: List[Dict[str, Any]]) -> Optional[str]:
+        """
+        Intenta encontrar la columna que contiene el nombre del jugador.
+        """
+        if not data:
+            return None
+        
+        headers = list(data[0].keys())
+        player_hints = ["player", "jugador", "name", "nombre"]
+        for header in headers:
+            lowered = header.lower()
+            if any(hint in lowered for hint in player_hints):
+                return header
+        
+        # Fallback a la primera columna si no hay coincidencias claras
+        return headers[0] if headers else None
+
+    def _detect_stat_column(self, query: str, data: List[Dict[str, Any]]) -> Optional[str]:
+        """
+        Deduce la columna de estadística relevante a partir de la consulta y las columnas disponibles.
+        """
+        if not data:
+            return None
+        
+        headers = list(data[0].keys())
+        query_lower = query.lower()
+        
+        stat_mappings = {
+            "asistencias": ["assist", "asist"],
+            "asistencia": ["assist", "asist"],
+            "asistente": ["assist", "asist"],
+            "puntos": ["point", "punto", "pts"],
+            "rebotes": ["rebound", "rebote"],
+            "rebote": ["rebound", "rebote"],
+            "triples": ["three", "triple"],
+            "valoracion": ["pir", "valora"],
+            "valoración": ["pir", "valora"],
+            "partidos": ["games", "game", "partido"],
+        }
+        
+        for keyword, candidates in stat_mappings.items():
+            if keyword in query_lower:
+                for candidate in candidates:
+                    for header in headers:
+                        if candidate in header.lower():
+                            return header
+        
+        # Fallback: primera columna numérica que no sea identificador ni nombre
+        for header in headers:
+            lowered = header.lower()
+            if any(skip in lowered for skip in ["id", "player", "jugador", "name", "nombre"]):
+                continue
+            values = [row.get(header) for row in data if row.get(header) is not None]
+            if values and all(self._is_numeric_value(v) for v in values):
+                return header
+        
+        return None
+
+    def _build_maximum_disambiguation(
+        self,
+        query: str,
+        data: List[Dict[str, Any]],
+        stat_column: Optional[str],
+        player_column: Optional[str],
+    ) -> str:
+        """
+        Genera instrucciones para no intercambiar valores cuando el usuario pide comparar con el máximo/top.
+        """
+        if not data or not stat_column or not player_column:
+            return ""
+        
+        query_lower = query.lower()
+        if "compara" not in query_lower:
+            return ""
+        
+        if not any(keyword in query_lower for keyword in ["maximo", "máximo", "mejor", "top"]):
+            return ""
+        
+        def safe_number(row: Dict[str, Any]) -> float:
+            try:
+                return float(row.get(stat_column, float("-inf")) or float("-inf"))
+            except (TypeError, ValueError):
+                return float("-inf")
+        
+        sorted_rows = sorted(data, key=safe_number, reverse=True)
+        leader_row = sorted_rows[0]
+        leader_name = leader_row.get(player_column, "el lider")
+        leader_value = leader_row.get(stat_column, "N/A")
+        
+        pairings = []
+        for row in data:
+            player_name = row.get(player_column, "Jugador")
+            stat_value = row.get(stat_column, "N/A")
+            pairings.append(f"{player_name}: {stat_value}")
+        
+        return f"""
+- **CRITICAL - VALIDA QUIEN ES EL LIDER EN {stat_column}:**
+  - Segun los datos, el lider es {leader_name} con {leader_value}.
+  - Usa exactamente estos pares jugador->valor: {", ".join(pairings)}.
+  - DEBES mencionar explícitamente los valores de cada jugador según esos pares (incluye al jugador mencionado y al líder).
+  - Si el jugador mencionado no es el lider, aclara que el maximo es {leader_name} y compara sus numeros sin intercambiarlos.
+  - No asignes {leader_value} a otro jugador ni supongas que el mencionado es el maximo si los datos dicen lo contrario.
+"""
+
+    @staticmethod
+    def _friendly_stat_name(stat_column: str) -> str:
+        """Devuelve un nombre legible para la estadística."""
+        lc = stat_column.lower()
+        if "assist" in lc or "asist" in lc:
+            return "asistencias"
+        if "rebound" in lc or "rebote" in lc:
+            return "rebotes"
+        if "point" in lc or "punto" in lc:
+            return "puntos"
+        if "three" in lc or "triple" in lc:
+            return "triples"
+        if "pir" in lc or "valor" in lc:
+            return "valoración"
+        return stat_column
+
     def _is_current_season(self, season: Optional[str]) -> bool:
         """
         Detecta si la temporada es la actual (2025/2026 o E2025).
@@ -372,6 +501,11 @@ class ResponseGeneratorService:
                 # Pasar la query para que la función pueda decidir si usar todas las temporadas o solo la actual
                 season_from_data = self._extract_season_from_data(limited_data, query)
                 
+                # Detectar columnas clave para desambiguar líderes
+                player_column = self._detect_player_column(limited_data)
+                stat_column = self._detect_stat_column(query, limited_data)
+                maximum_context = self._build_maximum_disambiguation(query, limited_data, stat_column, player_column)
+                
                 # Si no hay temporada en los datos, intentar extraerla del SQL
                 if not season_from_data and sql:
                     season_from_sql = self._extract_season_from_sql(sql)
@@ -398,8 +532,59 @@ class ResponseGeneratorService:
                     (record_count == 1 and num_columns <= 3) or
                     (record_count == 2 and num_columns <= 2)
                 )
+                query_lower_for_max = query.lower()
+                is_maximum_request = ("compara" in query_lower_for_max) and any(
+                    keyword in query_lower_for_max for keyword in ["máximo", "maximo", "mejor", "top"]
+                )
                 
                 if is_simple_response:
+                    # Respuesta determinista para una sola fila con jugador y stat
+                    if record_count == 1 and player_column and stat_column:
+                        row = limited_data[0]
+                        player_name = row.get(player_column, "Jugador")
+                        stat_value = row.get(stat_column, "N/A")
+                        stat_label = self._friendly_stat_name(stat_column)
+                        season_snippet = ""
+                        if season_from_data:
+                            season_snippet = f" en la temporada {season_from_data}"
+                        return (
+                            f"**{player_name}** registra **{stat_value} {stat_label}**{season_snippet}. "
+                            f"Es el valor solicitado para {stat_label}."
+                        )
+                    
+                    # Respuesta determinista para comparaciones máximo/top con 2 filas y 1-2 columnas
+                    if (
+                        record_count == 2
+                        and stat_column
+                        and player_column
+                        and is_maximum_request
+                    ):
+                        # Ordenar por la estadística para identificar líder y retador
+                        def safe_stat(row: Dict[str, Any]) -> float:
+                            try:
+                                return float(row.get(stat_column, float("-inf")) or float("-inf"))
+                            except (TypeError, ValueError):
+                                return float("-inf")
+                        
+                        ordered = sorted(limited_data, key=safe_stat, reverse=True)
+                        leader = ordered[0]
+                        challenger = ordered[1] if len(ordered) > 1 else ordered[0]
+                        leader_name = leader.get(player_column, "Líder")
+                        leader_value = leader.get(stat_column, "N/A")
+                        challenger_name = challenger.get(player_column, "Jugador")
+                        challenger_value = challenger.get(stat_column, "N/A")
+                        stat_label = self._friendly_stat_name(stat_column)
+                        
+                        season_snippet = ""
+                        if season_from_data:
+                            season_snippet = f" en la temporada {season_from_data}"
+                        
+                        return (
+                            f"**{leader_name}** lidera la liga con **{leader_value} {stat_label}**{season_snippet}, "
+                            f"mientras que **{challenger_name}** registra **{challenger_value} {stat_label}**. "
+                            f"Ambos muestran solidez en {stat_label}, pero el liderato es de {leader_name}."
+                        )
+                    
                     # Construir instrucción de temporada explícita
                     season_instruction = ""
                     if season_from_data:
@@ -493,6 +678,7 @@ class ResponseGeneratorService:
                       - For comparisons: Add a brief comparison or observation.
                       - Keep it natural - don't force comments if they don't fit naturally.
                     - **CRITICAL:** Present the answer in a clear, conversational format using **bold** to highlight key information.{season_instruction}
+                    {maximum_context}
                     - **ABSOLUTELY FORBIDDEN - NO TABLES:** This is a SIMPLE response ({record_count} row(s), {num_columns} column(s)). 
                       You MUST respond ONLY in plain text format (no tables). 
                       DO NOT create Markdown tables (no | characters, no table headers, no table rows).
@@ -626,6 +812,14 @@ class ResponseGeneratorService:
                         (record_count == 2 and num_columns <= 2)
                     )
                     
+                    # Detectar si es una comparación con "máximo/top" para reforzar el pareo correcto de valores
+                    query_lower_for_max = query.lower()
+                    is_maximum_request = ("compara" in query_lower_for_max) and any(
+                        keyword in query_lower_for_max for keyword in ["máximo", "maximo", "mejor", "top"]
+                    )
+                    maximum_explanation = maximum_context if is_maximum_request else ""
+                    is_maximum_comparison = bool(maximum_explanation)
+                    
                     comparison_instruction = ""
                     if is_comparison:
                         # Detectar si es temporada actual para ajustar ejemplos de verbos
@@ -652,9 +846,10 @@ class ResponseGeneratorService:
                         comparison_instruction = f"""
                     - **ABSOLUTELY CRITICAL - COMPARISON QUERY DETECTED:**
                       The user asked to COMPARE data ({record_count} rows with {num_columns} columns).
+                      {maximum_explanation}
                       
                       **YOU MUST FOLLOW THIS EXACT FORMAT:**
-                      1. Start with a brief 1-2 sentence introduction
+                      1. Start with a brief 1-2 sentence introduction{(" (see MAXIMUM EXPLANATION above)" if is_maximum_comparison else "")}
                       2. **IMMEDIATELY** show a Markdown Table with ALL rows
                       3. Then provide analysis/comparison text
                       
@@ -818,4 +1013,4 @@ class ResponseGeneratorService:
         except Exception as e:
             logger.error(f"Error generating natural response: {e}")
             # Fallback message
-            return "Aquí tienes los resultados encontrados en la base de datos:"
+            return "⚠️ Hubo un problema generando el resumen narrativo. Aquí tienes los datos exactos obtenidos de la base de datos:"

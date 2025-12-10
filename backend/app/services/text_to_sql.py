@@ -16,7 +16,7 @@ import httpx
 
 from app.models import PlayerSeasonStats
 from app.database import async_session_maker
-from sqlalchemy import select, func, text
+from sqlalchemy import select, func, text, or_
 from etl.ingest_player_season_stats import run_ingest_player_season_stats
 from etl.ingest_players import run_ingest_players
 
@@ -249,6 +249,342 @@ Responde SOLO con la consulta corregida, sin explicaciones adicionales."""
     
     
     @staticmethod
+    def _detect_comparison_with_maximum(query: str) -> Optional[Dict[str, Any]]:
+        """
+        Detecta si la consulta es una comparación con "máximo/quinto máximo/etc" y extrae información.
+        
+        Ejemplos:
+        - "Compara a Vesely con el máximo reboteador" -> {"player": "Vesely", "stat": "rebounds", "rank": 1}
+        - "Compara a Milutinov con el quinto máximo anotador" -> {"player": "Milutinov", "stat": "points", "rank": 5}
+        - "Compara a Tavares con el segundo peor reboteador" -> {"player": "Tavares", "stat": "rebounds", "rank": 2, "direction": "asc"}
+        - "el cuarto mejor anotador" -> rank 4, direction desc (top)
+        
+        Args:
+            query: Consulta del usuario
+            
+        Returns:
+            Diccionario con información de la comparación o None si no aplica
+        """
+        query_lower = query.lower()
+        query_normalized = normalize_text_for_matching(query)
+        
+        ordinal_map = {
+            "primer": 1, "primero": 1, "primera": 1,
+            "segundo": 2, "segunda": 2,
+            "tercero": 3, "tercera": 3,
+            "cuarto": 4, "cuarta": 4,
+            "quinto": 5, "quinta": 5,
+        }
+        
+        # Patrón ampliado: detecta ordinal (numérico o palabra) + mejor/máximo/peor
+        comparison_pattern = (
+            r"compara\s+(?:a\s+)?([a-záéíóúñ\s]+?)\s+con\s+el\s+"
+            r"(?:(\d+|primer(?:o|a)?|segund(?:o|a)?|tercer(?:o|a)?|cuart(?:o|a)?|quint(?:o|a)?)\s+)?"
+            r"(?:m[aá]ximo|m[aá]xima|mejor|peor)\s+"
+            r"(?:reboteador(?:a)?|anotador(?:a)?|asistente|rebound|scorer|assist)"
+        )
+        
+        match = re.search(comparison_pattern, query_normalized, re.IGNORECASE)
+        if not match:
+            return None
+        
+        player_name = match.group(1).strip()
+        rank_token = match.group(2)
+        if rank_token and rank_token.isdigit():
+            rank = int(rank_token)
+        elif rank_token:
+            rank = ordinal_map.get(rank_token.lower(), 1)
+        else:
+            rank = 1  # máximo/mejor por defecto
+        
+        # Determinar dirección: "peor" => ascendente, resto => descendente
+        direction = "asc" if "peor" in query_normalized else "desc"
+        
+        # Detectar tipo de estadística
+        stat = "points"  # Default
+        if any(word in query_normalized for word in ["rebote", "rebound"]):
+            stat = "rebounds"
+        elif any(word in query_normalized for word in ["asist", "assist"]):
+            stat = "assists"
+        elif any(word in query_normalized for word in ["anotador", "scorer", "puntos", "points"]):
+            stat = "points"
+        
+        return {
+            "player": player_name,
+            "stat": stat,
+            "rank": rank,
+            "direction": direction,
+        }
+    
+    async def _check_if_player_is_maximum(
+        self,
+        player_name: str,
+        stat: str,
+        rank: int,
+        seasoncode: str = "E2025",
+        direction: str = "desc",
+    ) -> Tuple[bool, Optional[Dict[str, Any]]]:
+        """
+        Verifica si el jugador mencionado es el máximo (o el rank especificado) en la categoría.
+        
+        Args:
+            player_name: Nombre del jugador
+            stat: Tipo de estadística ("points", "rebounds", "assists")
+            rank: Rank esperado (1 = máximo, 2 = segundo, etc.)
+            direction: "desc" para mejores, "asc" para peores
+            seasoncode: Código de temporada
+            
+        Returns:
+            Tupla (es_maximo, datos_del_jugador_en_rank)
+        """
+        try:
+            async with async_session_maker() as session:
+                from app.models import Player, PlayerSeasonStats
+                
+                # Obtener el jugador mencionado
+                player_query = select(Player.id, Player.name).where(
+                    Player.name.ilike(f"%{player_name}%")
+                ).limit(1)
+                result = await session.execute(player_query)
+                player_row = result.fetchone()
+                
+                if not player_row:
+                    logger.warning(f"Jugador '{player_name}' no encontrado")
+                    return False, None
+                
+                player_id = player_row.id
+                
+                # Obtener stats del jugador
+                stats_query = select(
+                    PlayerSeasonStats.player_id,
+                    PlayerSeasonStats.rebounds,
+                    PlayerSeasonStats.points,
+                    PlayerSeasonStats.assists,
+                    Player.name.label("player_name")
+                ).join(Player, PlayerSeasonStats.player_id == Player.id).where(
+                    PlayerSeasonStats.player_id == player_id,
+                    PlayerSeasonStats.season == seasoncode
+                )
+                
+                result = await session.execute(stats_query)
+                player_stats = result.fetchone()
+                
+                if not player_stats:
+                    logger.warning(f"Stats no encontradas para jugador '{player_name}' en temporada {seasoncode}")
+                    return False, None
+                
+                # Obtener el ranking completo para esa estadística
+                stat_column = getattr(PlayerSeasonStats, stat)
+                ordering = stat_column.desc() if direction == "desc" else stat_column.asc()
+                ranking_query = select(
+                    PlayerSeasonStats.player_id,
+                    stat_column,
+                    Player.name.label("player_name")
+                ).join(Player, PlayerSeasonStats.player_id == Player.id).where(
+                    PlayerSeasonStats.season == seasoncode
+                ).order_by(ordering).limit(rank + 2)  # +2 para manejar empates
+                
+                result = await session.execute(ranking_query)
+                ranking_rows = result.fetchall()
+                
+                if len(ranking_rows) < rank:
+                    return False, None
+                
+                # Verificar si el jugador está en el rank especificado
+                player_stat_value = getattr(player_stats, stat)
+                rank_player_id = ranking_rows[rank - 1].player_id
+                rank_stat_value = getattr(ranking_rows[rank - 1], stat)
+                
+                # Si el jugador está en el rank especificado, es el máximo (o el rank)
+                is_at_rank = (rank_player_id == player_id)
+                
+                # También verificar si hay empate (mismo valor de stat)
+                if not is_at_rank:
+                    # Buscar si el jugador tiene el mismo valor que el rank especificado (empate)
+                    if player_stat_value == rank_stat_value:
+                        is_at_rank = True
+                
+                if is_at_rank:
+                    # Obtener el siguiente en el ranking para comparar (saltar empates si los hay)
+                    # Buscar el primer jugador con un valor diferente (menor)
+                    next_player = None
+                    for i in range(rank, len(ranking_rows)):
+                        candidate = ranking_rows[i]
+                        candidate_stat = getattr(candidate, stat)
+                        if candidate_stat < rank_stat_value:
+                            next_player = candidate
+                            break
+                    
+                    if next_player:
+                        return True, {
+                            "player_id": next_player.player_id,
+                            "player_name": next_player.player_name,
+                            "stat_value": getattr(next_player, stat)
+                        }
+                    else:
+                        # No hay siguiente, el jugador es el único en ese rank
+                        return True, None
+                
+                return False, None
+                
+        except Exception as e:
+            logger.error(f"Error verificando si jugador es máximo: {e}")
+            return False, None
+    
+    async def _find_player_by_rank(
+        self,
+        stat: str,
+        rank: int,
+        seasoncode: str = "E2025",
+        direction: str = "desc",
+        exclude_name: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Obtiene el jugador en el rank indicado (mejor/peor) para una estadística dada.
+        """
+        try:
+            async with async_session_maker() as session:
+                from app.models import Player, PlayerSeasonStats
+                
+                stat_column = getattr(PlayerSeasonStats, stat)
+                ordering = stat_column.desc() if direction == "desc" else stat_column.asc()
+                
+                ranking_query = select(
+                    PlayerSeasonStats.player_id,
+                    stat_column,
+                    Player.name.label("player_name")
+                ).join(Player, PlayerSeasonStats.player_id == Player.id).where(
+                    PlayerSeasonStats.season == seasoncode,
+                    stat_column.isnot(None)
+                ).order_by(ordering).limit(rank + 5)
+                
+                result = await session.execute(ranking_query)
+                ranking_rows = result.fetchall()
+                
+                if not ranking_rows or len(ranking_rows) < rank:
+                    return None
+                
+                def normalize(name: str) -> str:
+                    return normalize_text_for_matching(name) if name else ""
+                
+                exclude_norm = normalize(exclude_name) if exclude_name else ""
+                picked = None
+                current_rank_index = 0
+                for row in ranking_rows:
+                    name = row.player_name
+                    if exclude_norm and normalize(name) == exclude_norm:
+                        continue
+                    current_rank_index += 1
+                    if current_rank_index == rank:
+                        picked = row
+                        break
+                
+                if not picked:
+                    return None
+                
+                return {
+                    "player_id": picked.player_id,
+                    "player_name": picked.player_name,
+                    "stat_value": getattr(picked, stat),
+                }
+        except Exception as e:
+            logger.error(f"Error encontrando jugador en rank {rank} para {stat}: {e}")
+            return None
+
+    async def _fetch_two_players_stat(
+        self,
+        player_a: str,
+        player_b: str,
+        stat: str,
+        seasoncode: str = "E2025",
+    ) -> List[Dict[str, Any]]:
+        """
+        Obtiene la estadística solicitada para dos jugadores.
+        """
+        try:
+            async with async_session_maker() as session:
+                from app.models import Player, PlayerSeasonStats
+                
+                stat_column = getattr(PlayerSeasonStats, stat)
+                
+                query = select(
+                    Player.name.label("player"),
+                    stat_column.label(stat),
+                    PlayerSeasonStats.season
+                ).join(Player, PlayerSeasonStats.player_id == Player.id).where(
+                    PlayerSeasonStats.season == seasoncode,
+                    or_(
+                        Player.name.ilike(f"%{player_a}%"),
+                        Player.name.ilike(f"%{player_b}%"),
+                    )
+                ).limit(2)
+                
+                result = await session.execute(query)
+                rows = result.fetchall()
+                return [
+                    {
+                        "player": row.player,
+                        stat: getattr(row, stat),
+                        "season": row.season,
+                    }
+                    for row in rows
+                ]
+        except Exception as e:
+            logger.error(f"Error obteniendo stats de comparación {player_a} vs {player_b} para {stat}: {e}")
+            return []
+    
+    @staticmethod
+    def _replace_rank_descriptor_with_name(query: str, replacement_name: str) -> str:
+        """
+        Reemplaza el segmento "el [ordinal] maximo/mejor/peor <stat>" por el nombre encontrado.
+        """
+        pattern = (
+            r"(el\s+(?:\d+\s+|primer(?:o|a)?\s+|segund(?:o|a)?\s+|tercer(?:o|a)?\s+|cuart(?:o|a)?\s+|quint(?:o|a)?\s+)?"
+            r"(?:m[aá]ximo|m[aá]xima|mejor|peor)\s+"
+            r"(?:reboteador(?:a)?|anotador(?:a)?|asistente|rebound|scorer|assist))"
+        )
+        return re.sub(pattern, replacement_name, query, flags=re.IGNORECASE)
+
+    @staticmethod
+    def _detect_rank_only_request(query: str) -> Optional[Dict[str, Any]]:
+        """
+        Detecta consultas sin nombre que piden "el segundo/tercer/quinto mejor/peor <stat>".
+        """
+        query_normalized = normalize_text_for_matching(query)
+        ordinal_map = {
+            "primer": 1, "primero": 1, "primera": 1,
+            "segundo": 2, "segunda": 2,
+            "tercero": 3, "tercera": 3,
+            "cuarto": 4, "cuarta": 4,
+            "quinto": 5, "quinta": 5,
+        }
+        pattern = (
+            r"(?:el\s+)?"
+            r"(?:(\d+|primer(?:o|a)?|segund(?:o|a)?|tercer(?:o|a)?|cuart(?:o|a)?|quint(?:o|a)?)\s+)?"
+            r"(?:m[aá]ximo|m[aá]xima|mejor|peor)\s+"
+            r"(?:reboteador(?:a)?|anotador(?:a)?|asistente|rebound|scorer|assist)"
+        )
+        match = re.search(pattern, query_normalized, re.IGNORECASE)
+        if not match:
+            return None
+        rank_token = match.group(1)
+        if rank_token and rank_token.isdigit():
+            rank = int(rank_token)
+        elif rank_token:
+            rank = ordinal_map.get(rank_token.lower(), 1)
+        else:
+            rank = 1
+        direction = "asc" if "peor" in query_normalized else "desc"
+        stat = "points"
+        if "rebote" in query_normalized or "rebound" in query_normalized:
+            stat = "rebounds"
+        elif "asist" in query_normalized or "assist" in query_normalized:
+            stat = "assists"
+        elif any(word in query_normalized for word in ["anotador", "scorer", "puntos", "points"]):
+            stat = "points"
+        return {"rank": rank, "direction": direction, "stat": stat}
+    
+    @staticmethod
     def _detect_team_mentioned(query: str) -> bool:
         """
         Detecta si hay un nombre de equipo mencionado en la consulta, incluso si no está en el mapeo.
@@ -441,7 +777,12 @@ GENERAL RULES:
 2. The "sql" field must contain a valid PostgreSQL SELECT query.
 3. **CRITICAL - PLAYER NAMES:** Use EXACTLY the player names mentioned in the user's query. Do NOT confuse similar names:
    - "Okeke" and "Okobo" are DIFFERENT players. If user says "Okeke", use "Okeke" (not "Okobo").
-   - Use ILIKE for case-insensitive matching: `p.name ILIKE '%Okeke%'` (not `p.name ILIKE '%Okobo%'`).
+   - **NAME FORMAT HANDLING (MOST IMPORTANT):** Player names in database are often stored as "LASTNAME, FIRSTNAME" (e.g., "NUNN, KENDRICK" or "CAMPAZZO, FACUNDO").
+     - When searching for a full name (e.g. "Kendrick Nunn"), YOU MUST USE `AND` TO MATCH BOTH PARTS INDEPENDENTLY.
+     - ✅ CORRECT: `(p.name ILIKE '%Kendrick%' AND p.name ILIKE '%Nunn%')` -> Matches "Kendrick Nunn" AND "NUNN, KENDRICK".
+     - ❌ WRONG: `p.name ILIKE '%Kendrick Nunn%'` -> Only matches "Kendrick Nunn", FAILS for "NUNN, KENDRICK".
+     - Always split full names into parts and use AND with ILIKE for maximum robustness.
+   - Use ILIKE for case-insensitive matching.
    - Only correct OBVIOUS typos (e.g., "Larkyn" → "Larkin"), but NEVER change correct names to similar ones.
    - **NAMES WITH PREPOSITIONS/ARTICLES:** For names with "de", "del", "van", "von", etc. (e.g., "Nando de Colo", "Juan Carlos Navarro"), use MULTIPLE ILIKE patterns with OR to handle different database formats:
      - ✅ CORRECT: `(p.name ILIKE '%Nando de Colo%' OR p.name ILIKE '%Nando%Colo%' OR p.name ILIKE '%de Colo%')`
@@ -486,7 +827,34 @@ GENERAL RULES:
       This ensures matches even if the database has "Hapoel Tel Aviv BC" while avoiding matches with other teams that share common words (e.g., "Maccabi Tel Aviv").
       NEVER use OR for team name matching as it will mix different teams.
 
+**🚨🚨🚨 ABSOLUTELY CRITICAL RULE FOR COMPARISON QUERIES - READ THIS FIRST:**
+When the user asks to compare a player with "máximo/quinto/etc [stat]", you MUST:
+1. **ALWAYS retrieve BOTH players** - the mentioned player AND the maximum/ranked player. **IF THE QUERY RETURNS ONLY 1 ROW, IT IS WRONG.**
+2. **For single-word names** (e.g., "Campazzo", "Tavares", "Hezonja"): Use `p.name ILIKE '%Name%'` - this matches "Campazzo", "CAMPAZZO, FACUNDO", etc.
+3. **For full names** (e.g., "Kendrick Nunn", "Facundo Campazzo"): Use AND conditions: `(p.name ILIKE '%FirstPart%' AND p.name ILIKE '%SecondPart%')` to match both "Kendrick Nunn" and "NUNN, KENDRICK"
+4. **ALWAYS use player_id matching for maximum**: `ps.player_id = (SELECT ps2.player_id FROM player_season_stats ps2 WHERE ps2.season = 'E2025' ORDER BY ps2.[stat] DESC LIMIT 1 OFFSET N)` - **NEVER** use stat value matching like `ps.assists = (SELECT MAX(assists)...)` as it can match wrong players or miss the mentioned player
+5. **The WHERE clause MUST use OR with parentheses**: `((player_name_condition) OR (max_player_id_condition)) AND ps.season = 'E2025'` - **BOTH conditions must be in parentheses to ensure proper evaluation**
+6. **CRITICAL - VERIFY YOUR SQL**: Before returning, check that your WHERE clause will return EXACTLY 2 rows:
+   - One row matching the mentioned player name
+   - One row matching the maximum player_id
+   - If you're not sure, test mentally: does `p.name ILIKE '%Campazzo%'` match "CAMPAZZO, FACUNDO"? YES. Does `ps.player_id = (SELECT ...)` match the max player? YES. Then you should get 2 rows.
+7. **DO NOT use DISTINCT** - it might hide missing players. If you get duplicates, there's a problem with your JOIN, not with needing DISTINCT.
+
 FEW-SHOT EXAMPLES:
+
+Query: "Compara a Campazzo con el máximo asistente"
+{{
+  "sql": "SELECT p.name AS Jugador, ps.assists AS Asistencias FROM player_season_stats ps JOIN players p ON p.id = ps.player_id WHERE ((p.name ILIKE '%Campazzo%') OR (ps.player_id = (SELECT ps2.player_id FROM player_season_stats ps2 WHERE ps2.season = 'E2025' ORDER BY ps2.assists DESC LIMIT 1))) AND ps.season = 'E2025' ORDER BY ps.assists DESC;",
+  "visualization_type": "table"
+}}
+NOTE: **CRITICAL:** This query MUST return EXACTLY 2 rows: one for Campazzo and one for the maximum assist player. Notice the double parentheses: `((condition1) OR (condition2))` - this ensures both conditions are evaluated correctly. The first condition matches Campazzo (works for "Campazzo", "CAMPAZZO, FACUNDO", etc.). The second condition matches the player_id of the maximum assists player. **VERIFY:** Both conditions are in parentheses and connected with OR, then the whole thing is ANDed with season filter.
+
+Query: "Compara a Kendrick Nunn con el máximo asistente"
+{{
+  "sql": "SELECT p.name AS Jugador, ps.assists AS Asistencias FROM player_season_stats ps JOIN players p ON p.id = ps.player_id WHERE ((p.name ILIKE '%Kendrick%' AND p.name ILIKE '%Nunn%') OR ps.player_id = (SELECT ps2.player_id FROM player_season_stats ps2 WHERE ps2.season = 'E2025' ORDER BY ps2.assists DESC LIMIT 1)) AND ps.season = 'E2025' ORDER BY ps.assists DESC;",
+  "visualization_type": "table"
+}}
+NOTE: **CRITICAL - FULL NAME HANDLING:** For "Kendrick Nunn", we use `(p.name ILIKE '%Kendrick%' AND p.name ILIKE '%Nunn%')` to match both "Kendrick Nunn" and "NUNN, KENDRICK" formats. The WHERE clause uses OR to include BOTH the mentioned player AND the maximum player. **IMPORTANT:** Use `ps.player_id = (SELECT ps2.player_id FROM ... LIMIT 1)` instead of `ps.assists = (SELECT MAX(assists)...)` to ensure we get the actual player record, not just matching by stat value (which could match multiple players in case of ties).
 
 Query: "puntos de Larkin"
 {{
@@ -524,6 +892,20 @@ Query: "Compara la temporada de Vesely y Tavares"
   "visualization_type": "table"
 }}
 NOTE: Even though the user says "la temporada" (singular), since they did NOT specify which season, we use the CURRENT season 'E2025'. We do NOT return all seasons.
+
+Query: "Compara a Vesely con el máximo reboteador"
+{{
+  "sql": "SELECT p.name AS Jugador, ps.points AS Puntos, ps.assists AS Asistencias, ps.rebounds AS Rebotes, ps.\"threePointsMade\" AS Triples, ps.pir AS Valoracion, ps.games_played AS Partidos FROM player_season_stats ps JOIN players p ON p.id = ps.player_id WHERE (p.name ILIKE '%Vesely%' OR ps.player_id = (SELECT ps2.player_id FROM player_season_stats ps2 WHERE ps2.season = 'E2025' ORDER BY ps2.rebounds DESC LIMIT 1)) AND ps.season = 'E2025' ORDER BY ps.rebounds DESC;",
+  "visualization_type": "table"
+}}
+NOTE: When comparing a player with "máximo [stat]", include both the player and the player with MAX([stat]) in the WHERE clause. **CRITICAL:** Use `ps.player_id = (SELECT ps2.player_id FROM ... ORDER BY stat DESC LIMIT 1)` instead of `ps.stat = (SELECT MAX(stat)...)` to ensure we get the actual maximum player record, avoiding issues with ties or missing players.
+
+Query: "Compara a Milutinov con el quinto máximo anotador"
+{{
+  "sql": "SELECT p.name AS Jugador, ps.points AS Puntos, ps.assists AS Asistencias, ps.rebounds AS Rebotes, ps.\"threePointsMade\" AS Triples, ps.pir AS Valoracion, ps.games_played AS Partidos FROM player_season_stats ps JOIN players p ON p.id = ps.player_id WHERE (p.name ILIKE '%Milutinov%' OR ps.player_id = (SELECT ps2.player_id FROM player_season_stats ps2 WHERE ps2.season = 'E2025' ORDER BY ps2.points DESC LIMIT 1 OFFSET 4)) AND ps.season = 'E2025' ORDER BY ps.points DESC;",
+  "visualization_type": "table"
+}}
+NOTE: For "quinto máximo" (5th maximum), use OFFSET 4 (0-indexed: 0=1st, 1=2nd, 2=3rd, 3=4th, 4=5th). **CRITICAL:** Use `ps.player_id = (SELECT ps2.player_id FROM ... LIMIT 1 OFFSET N)` instead of matching by stat value to ensure we get the actual ranked player.
 
 Query: "Estadisticas de Llull"
 {{
@@ -1047,11 +1429,12 @@ Always respond with ONLY a JSON object. No explanation, no markdown, just JSON."
                 return None, None, error_msg, None
             
             if requires_stats:
-                logger.info("Consulta detectada como stats de jugadores.")
+                logger.info("Consulta detectada como stats de jugadores. Usando flujo rápido de stats.")
                 
                 try:
                     # Extraer parámetros (local, sin LLM)
                     params = await self._extract_stats_params(query)
+                    logger.info(f"Parámetros extraídos para stats: {params}")
                     
                     # CRÍTICO: Si hay un equipo mencionado pero no está en el mapeo (team_code es None),
                     # usar el flujo de SQL para que el LLM pueda generar el filtro correcto con t.name ILIKE
@@ -1060,10 +1443,14 @@ Always respond with ONLY a JSON object. No explanation, no markdown, just JSON."
                         logger.info("Equipo mencionado pero no en mapeo. Usando flujo SQL para filtro correcto.")
                         # Continuar con el flujo de SQL normal (más abajo)
                     else:
-                        # VERIFICACIÓN DE INGESTA BAJO DEMANDA
+                        # VERIFICACIÓN DE INGESTA BAJO DEMANDA (puede tardar si necesita ejecutar ETL)
+                        logger.info(f"Verificando datos de temporada {params['seasoncode']}...")
                         season_added = await self._ensure_season_data(params["seasoncode"])
+                        if season_added:
+                            logger.info(f"Temporada {params['seasoncode']} añadida bajo demanda")
                         
                         # Obtener stats desde BD (poblada por ETL diario a las 7 AM)
+                        logger.info(f"Obteniendo stats desde BD: stat={params['stat']}, top_n={params['top_n']}")
                         results = await self._get_player_stats_from_db(
                             seasoncode=params["seasoncode"],
                             stat=params["stat"],
@@ -1077,6 +1464,26 @@ Always respond with ONLY a JSON object. No explanation, no markdown, just JSON."
                         if season_added:
                             asyncio.create_task(self._cleanup_old_seasons(max_seasons=3))
                         
+                        # Resolver consultas sin nombre: "el segundo mejor/peor ..."
+                        rank_only = self._detect_rank_only_request(query)
+                        if rank_only:
+                            target = await self._find_player_by_rank(
+                                stat=rank_only["stat"],
+                                rank=rank_only["rank"],
+                                seasoncode=params["seasoncode"],
+                                direction=rank_only["direction"],
+                            )
+                            if target:
+                                data = [{
+                                    "player": target["player_name"],
+                                    rank_only["stat"]: target["stat_value"],
+                                    "season": params["seasoncode"],
+                                }]
+                                logger.info(f"Resolución directa de rank-only: {data}")
+                                return None, "table", None, data
+                            else:
+                                logger.warning("No se encontró jugador para rank-only; se continúa flujo normal.")
+                        
                         # Retornar datos directos (sin SQL)
                         return None, "bar", None, results
                     
@@ -1086,6 +1493,70 @@ Always respond with ONLY a JSON object. No explanation, no markdown, just JSON."
             
             # SI NO ES STATS, CONTINUAR CON SQL NORMAL
             logger.info("Consulta normal. Generando SQL...")
+            
+            # DETECCIÓN DE COMPARACIÓN CON MÁXIMO (solo para comparaciones, no para consultas simples)
+            # Solo ejecutar si la consulta contiene "compara" para evitar ejecutar en consultas simples
+            detected_comparison = None
+            if "compara" in query.lower() or "comparar" in query.lower():
+                detected_comparison = self._detect_comparison_with_maximum(query)
+                if detected_comparison:
+                    logger.info(f"Detectada comparación con máximo: {detected_comparison}")
+                    temp_params = await self._extract_stats_params(query)
+                    seasoncode = temp_params["seasoncode"]
+                    direction = detected_comparison.get("direction", "desc")
+                    stat = detected_comparison["stat"]
+                    
+                    # Verificar si el jugador mencionado es el máximo
+                    is_maximum, next_player_data = await self._check_if_player_is_maximum(
+                        player_name=detected_comparison["player"],
+                        stat=stat,
+                        rank=detected_comparison["rank"],
+                        seasoncode=seasoncode,
+                        direction=direction,
+                    )
+                    
+                    if is_maximum and next_player_data:
+                        # El jugador es el máximo, ajustar la consulta para comparar con el siguiente
+                        logger.info(f"Jugador {detected_comparison['player']} es el máximo {detected_comparison['stat']}. Ajustando consulta para comparar con {next_player_data['player_name']}")
+                        # Modificar la consulta para comparar con el siguiente en el ranking
+                        query = re.sub(
+                            r"el\s+(\d+\s+)?m[aá]ximo\s+(?:reboteador|anotador|asistente|reboteadora|anotadora)",
+                            next_player_data['player_name'],
+                            query,
+                            flags=re.IGNORECASE
+                        )
+                        logger.info(f"Consulta ajustada: '{query}'")
+                    elif is_maximum:
+                        # El jugador es el único en ese rank (no hay siguiente)
+                        logger.info(f"Jugador {detected_comparison['player']} es el máximo pero no hay siguiente en el ranking")
+                    
+                    # Si el usuario no dio nombre del objetivo (solo "el segundo mejor..."), encontrarlo y reemplazar en la consulta
+                    target_player = await self._find_player_by_rank(
+                        stat=stat,
+                        rank=detected_comparison["rank"],
+                        seasoncode=seasoncode,
+                        direction=direction,
+                        exclude_name=detected_comparison["player"],
+                    )
+                    if target_player:
+                        old_query = query
+                        query = self._replace_rank_descriptor_with_name(query, target_player["player_name"])
+                        logger.info(f"Reemplazando descriptor de ranking por nombre '{target_player['player_name']}': '{old_query}' -> '{query}'")
+                        
+                        # Obtener stats directas de ambos jugadores y retornar sin pasar por LLM
+                        comparison_data = await self._fetch_two_players_stat(
+                            player_a=detected_comparison["player"],
+                            player_b=target_player["player_name"],
+                            stat=stat,
+                            seasoncode=seasoncode,
+                        )
+                        if comparison_data:
+                            logger.info(f"Retornando datos directos de comparación ({len(comparison_data)} filas)")
+                            return None, "table", None, comparison_data
+                        else:
+                            logger.warning("No se encontraron datos para la comparación directa; se continúa con flujo normal.")
+                    else:
+                        logger.warning("No se pudo resolver el jugador objetivo por ranking; se mantiene la consulta original.")
             
             # DETECCION PROACTIVA DE TEMPORADA PARA INGESTA BAJO DEMANDA
             # Incluso si va a LLM, necesitamos asegurar que los datos existan
@@ -1268,7 +1739,7 @@ Always respond with ONLY a JSON object. No explanation, no markdown, just JSON."
                     logger.warning("Detectado uso incorrecto de ps.season en roster query, corrigiendo a p.season...")
                     sql = re.sub(r"\bps\.season\b", "p.season", sql, flags=re.IGNORECASE)
                 # Remover cualquier referencia a ps.* si no hay JOIN con player_season_stats
-                if "ps\." in sql.lower() and "player_season_stats" not in sql.lower():
+                if "ps." in sql.lower() and "player_season_stats" not in sql.lower():
                     logger.warning("Removiendo referencias a ps.* sin JOIN correspondiente...")
                     sql = re.sub(r"\bps\.\w+\b", "", sql, flags=re.IGNORECASE)
                     # Limpiar WHERE/AND duplicados que puedan quedar
